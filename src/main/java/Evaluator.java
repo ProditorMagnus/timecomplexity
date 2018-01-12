@@ -5,10 +5,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
+import java.util.concurrent.*;
 
 public class Evaluator {
     private static final Logger logger = LoggerFactory.getLogger(Evaluator.class);
+    private static final long TIME_LIMIT = 1000;
     private final Class<?> target;
+    private final double PRECISION = 0.9;
 
     public Evaluator(Class<?> target) {
         this.target = target;
@@ -25,26 +28,69 @@ public class Evaluator {
     private void evaluate() throws InvocationTargetException, IllegalAccessException {
         for (Method method : target.getMethods()) {
             if (Modifier.isStatic(method.getModifiers()) &&
-                    Arrays.equals(method.getParameterTypes(), new Class<?>[]{int.class})) {
-                Map<Integer, List<Long>> results = evaluateMethod(method);
+                    Arrays.equals(method.getParameterTypes(), new Class<?>[]{long.class})) {
+                Map<Long, List<Long>> results = evaluateMethod(method);
                 logger.info("results {}", results);
             }
         }
     }
 
-    private Map<Integer, List<Long>> evaluateMethod(Method method) throws IllegalAccessException, InvocationTargetException {
+    private Map<Long, List<Long>> evaluateMethod(Method method) throws IllegalAccessException, InvocationTargetException {
         int repeats = 4;
-        Map<Integer, List<Long>> results = new HashMap<>();
-        for (int i = 0; i < 20; i++) {
-            results.putIfAbsent(i, new ArrayList<>());
-            List<Long> times = evaluateMethod(method, repeats, i);
-            results.get(i).addAll(times);
-            if (Collections.min(times) > 5000) break;
-        }
+        long limit = findMaxArgument(method, repeats);
+        logger.info("Limit {}", limit);
+
+        Map<Long, List<Long>> results = new HashMap<>();
+//        for (long i = 0; i < Long.MAX_VALUE; i++) {
+//            results.putIfAbsent(i, new ArrayList<>());
+//            List<Long> times = evaluateMethod(method, repeats, i);
+//            results.get(i).addAll(times);
+//            Long min = Collections.min(times);
+//            if (min > 5000) break;
+//            if (min < 1) i *= 100;
+//            i *= 2;
+//        }
         return results;
     }
 
-    private List<Long> evaluateMethod(Method method, int times, int n) throws InvocationTargetException, IllegalAccessException {
+    private long findMaxArgument(final Method method, final int times) throws InvocationTargetException, IllegalAccessException {
+//        long min = 0;
+        long current = 0;
+        ExecutorService executor = Executors.newFixedThreadPool(1);
+        while (true) {
+            final long current_ = current;
+            Future<List<Long>> submit = executor.submit(() -> evaluateMethod(method, times, current_));
+            double average;
+            try {
+                logger.info("getting at {}", current_);
+                List<Long> longs = submit.get(10 * TIME_LIMIT, TimeUnit.MILLISECONDS);
+                logger.info("got longs {}", longs);
+                average = longs.stream().mapToLong(Long::new).average().getAsDouble();
+            } catch (Exception e) {
+                average = Double.MAX_VALUE;
+                logger.info("timeout {}", current_);
+                logger.error("e", e);
+                submit.cancel(true);
+            }
+
+            if (average < TIME_LIMIT * PRECISION) {
+//                min = current;
+//                current = current + 1 + 2 * min;
+                current *= 2;
+                current++;
+            } else if (average > TIME_LIMIT / PRECISION) {
+                logger.info("TODO search {}", current);
+                break;
+            } else {
+                break;
+            }
+            logger.info("current avg {}", average);
+        }
+        executor.shutdown();
+        return current;
+    }
+
+    private List<Long> evaluateMethod(Method method, int times, long n) throws InvocationTargetException, IllegalAccessException {
         List<Long> results = new ArrayList<>();
         for (int i = 0; i < times; i++) {
             results.add(evaluateMethodOnce(method, n));
@@ -52,11 +98,11 @@ public class Evaluator {
         return results;
     }
 
-    private long evaluateMethodOnce(Method method, int n) throws InvocationTargetException, IllegalAccessException {
+    private long evaluateMethodOnce(Method method, long n) throws InvocationTargetException, IllegalAccessException {
         long time = System.currentTimeMillis();
         method.invoke(null, n);
         long timeSpent = System.currentTimeMillis() - time;
-        logger.info("Time spent: {}", timeSpent);
+        logger.info("Time spent for {}: {}", n, timeSpent);
         return timeSpent;
     }
 
