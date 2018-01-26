@@ -54,16 +54,19 @@ public class Evaluator {
     }
 
     private long findMaxArgument(final Method method, final int times) throws InvocationTargetException, IllegalAccessException {
-//        long min = 0;
+        long low = 0;
+        long high = Long.MAX_VALUE;
         long current = 0;
+        boolean found_windows = false;
         ExecutorService executor = Executors.newFixedThreadPool(1);
         while (true) {
+            logger.info("Current {}", current);
             final long current_ = current;
             Future<List<Long>> submit = executor.submit(() -> evaluateMethod(method, times, current_));
             double average;
             try {
                 logger.info("getting at {}", current_);
-                List<Long> longs = submit.get(10 * TIME_LIMIT, TimeUnit.MILLISECONDS);
+                List<Long> longs = submit.get(5 * TIME_LIMIT, TimeUnit.MILLISECONDS);
                 logger.info("got longs {}", longs);
                 average = longs.stream().mapToLong(Long::new).average().getAsDouble();
             } catch (Exception e) {
@@ -74,19 +77,24 @@ public class Evaluator {
             }
 
             if (average < TIME_LIMIT * PRECISION) {
-//                min = current;
+                low = current;
 //                current = current + 1 + 2 * min;
-                current *= 2;
-                current++;
+                if (!found_windows) {
+                    current *= 2;
+                    current++;
+                } else {
+                    current = (low + high) / 2;
+                }
             } else if (average > TIME_LIMIT / PRECISION) {
-                logger.info("TODO search {}", current);
-                break;
+                high = current;
+                found_windows = true;
+                current = (low + high) / 2;
             } else {
                 break;
             }
             logger.info("current avg {}", average);
         }
-        executor.shutdown();
+        executor.shutdownNow();
         return current;
     }
 
