@@ -13,6 +13,8 @@ public class Evaluator {
     private final Class<?> target;
     private final double PRECISION = 0.9;
 
+    private final ResultHolder results = new ResultHolder();
+
     public Evaluator(Class<?> target) {
         this.target = target;
     }
@@ -23,34 +25,23 @@ public class Evaluator {
         } catch (Exception e) {
             logger.error("Evaluation failed", e);
         }
+        System.out.println(results.average());
     }
 
     private void evaluate() throws InvocationTargetException, IllegalAccessException {
         for (Method method : target.getMethods()) {
             if (Modifier.isStatic(method.getModifiers()) &&
                     Arrays.equals(method.getParameterTypes(), new Class<?>[]{long.class})) {
-                Map<Long, List<Long>> results = evaluateMethod(method);
+                evaluateMethod(method);
                 logger.info("results {}", results);
             }
         }
     }
 
-    private Map<Long, List<Long>> evaluateMethod(Method method) throws IllegalAccessException, InvocationTargetException {
+    private void evaluateMethod(Method method) throws IllegalAccessException, InvocationTargetException {
         int repeats = 4;
         long limit = findMaxArgument(method, repeats);
         logger.info("Limit {}", limit);
-
-        Map<Long, List<Long>> results = new HashMap<>();
-//        for (long i = 0; i < Long.MAX_VALUE; i++) {
-//            results.putIfAbsent(i, new ArrayList<>());
-//            List<Long> times = evaluateMethod(method, repeats, i);
-//            results.get(i).addAll(times);
-//            Long min = Collections.min(times);
-//            if (min > 5000) break;
-//            if (min < 1) i *= 100;
-//            i *= 2;
-//        }
-        return results;
     }
 
     private long findMaxArgument(final Method method, final int times) throws InvocationTargetException, IllegalAccessException {
@@ -59,22 +50,29 @@ public class Evaluator {
         long current = 0;
         boolean found_windows = false;
         ExecutorService executor = Executors.newFixedThreadPool(1);
+        Set<Long> attemptedValues = new HashSet<>();
         while (true) {
-            logger.info("Current {}", current);
             final long current_ = current;
             Future<List<Long>> submit = executor.submit(() -> evaluateMethod(method, times, current_));
             double average;
+            if (!attemptedValues.add(current)) {
+                logger.error("Same current attempted multiple times {} {} {}", low, current, high);
+                submit.cancel(true);
+                break;
+            }
             try {
                 logger.info("getting at {}", current_);
                 List<Long> longs = submit.get(5 * TIME_LIMIT, TimeUnit.MILLISECONDS);
                 logger.info("got longs {}", longs);
-                average = longs.stream().mapToLong(Long::new).average().getAsDouble();
-            } catch (Exception e) {
+                average = longs.stream().mapToLong(Long::new).average().orElse(Double.MAX_VALUE);
+            } catch (TimeoutException | ExecutionException | InterruptedException e) {
                 average = Double.MAX_VALUE;
                 logger.info("timeout {}", current_);
+                results.addTime(current, null);
                 logger.error("e", e);
                 submit.cancel(true);
             }
+            logger.info("current {} -> avg {}", current, average);
 
             if (average < TIME_LIMIT * PRECISION) {
                 low = current;
@@ -89,10 +87,12 @@ public class Evaluator {
                 high = current;
                 found_windows = true;
                 current = (low + high) / 2;
+                if (attemptedValues.contains(current)) {
+                    current--;
+                }
             } else {
                 break;
             }
-            logger.info("current avg {}", average);
         }
         executor.shutdownNow();
         return current;
@@ -111,6 +111,7 @@ public class Evaluator {
         method.invoke(null, n);
         long timeSpent = System.currentTimeMillis() - time;
         logger.info("Time spent for {}: {}", n, timeSpent);
+        results.addTime(n, timeSpent);
         return timeSpent;
     }
 
