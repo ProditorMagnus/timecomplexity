@@ -25,4 +25,9 @@ public class ResultHolder {
         }
         return average;
     }
+
+    @Override
+    public String toString() {
+        return "ResultHolder{" + "results=" + results + '}';
+    }
 }
