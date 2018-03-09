@@ -13,8 +13,8 @@ public class ResultHolder {
         results.get(inputSize).addAll(times);
     }
 
-    public Map<Long, Long> average() {
-        Map<Long, Long> average = new HashMap<>();
+    public TreeMap<Long, Long> average() {
+        TreeMap<Long, Long> average = new TreeMap<>();
         for (Map.Entry<Long, List<Long>> entry : results.entrySet()) {
             OptionalDouble avg = entry.getValue().stream().filter(Objects::nonNull).mapToLong(v -> v).average();
             if (avg.isPresent()) {
@@ -24,6 +24,14 @@ public class ResultHolder {
             }
         }
         return average;
+    }
+
+    public void printResults() {
+        TreeMap<Long, Long> average = average();
+        NavigableSet<Long> keySet = average.navigableKeySet();
+        for (Long key : keySet) {
+            System.out.printf("%d , %d%n", key, average.get(key));
+        }
     }
 
     @Override

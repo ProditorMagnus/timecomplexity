@@ -10,7 +10,8 @@ public class Main {
 //        evaluator.estimate();
 //        new PythonExecutor().run();
         FunctionExecutor executor = new JavaExecutor(Paths.get(properties.getProperty("loc.source.java"), properties.getProperty("loc.source.file")));
-        executor.start();
+        ResultHolder results = executor.start();
+        results.printResults();
         System.out.println("end");
 //        System.exit(0); // TODO find way without system.exit to kill submitted tasks
     }

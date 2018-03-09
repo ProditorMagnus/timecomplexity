@@ -23,4 +23,8 @@ public class Config {
     public static Properties get(String fileName) {
         return cache.computeIfAbsent(fileName, Config::loadConfig);
     }
+
+    public static String value(String key) {
+        return get("config.properties").getProperty(key);
+    }
 }

@@ -12,5 +12,5 @@ public abstract class FunctionExecutor {
         this.source = source;
     }
 
-    public abstract void start();
+    public abstract ResultHolder start();
 }

@@ -9,9 +9,9 @@ import java.util.concurrent.*;
 
 public class Evaluator {
     private static final Logger logger = LoggerFactory.getLogger(Evaluator.class);
-    private static final long TIME_LIMIT = 1000;
+    private static final long TIME_LIMIT = 2000;
     private final Class<?> target;
-    private final double PRECISION = 0.9;
+    private final double PRECISION = 0.6;
 
     private final ResultHolder results = new ResultHolder();
 
@@ -19,13 +19,13 @@ public class Evaluator {
         this.target = target;
     }
 
-    public void estimate() {
+    public ResultHolder estimate() {
         try {
             evaluate();
         } catch (Exception e) {
             logger.error("Evaluation failed", e);
         }
-        System.out.println(results.average());
+        return results;
     }
 
     public static Class<?>[] parseParameters(String s) throws ClassNotFoundException {
@@ -64,20 +64,57 @@ public class Evaluator {
         return parameters;
     }
 
-    private void evaluate() throws InvocationTargetException, IllegalAccessException {
+    private void evaluate() throws InvocationTargetException, IllegalAccessException, ClassNotFoundException {
         for (Method method : target.getMethods()) {
-            if (Modifier.isStatic(method.getModifiers()) &&
-                    Arrays.equals(method.getParameterTypes(), new Class<?>[]{long.class})) {
+            if (Modifier.isStatic(method.getModifiers()) && Arrays.equals(method.getParameterTypes(),
+                    parseParameters(Config.get("config.properties").getProperty("function.parameter")))) {
                 evaluateMethod(method);
                 logger.info("results {}", results);
             }
         }
     }
 
-    private void evaluateMethod(Method method) throws IllegalAccessException, InvocationTargetException {
-        int repeats = 4;
-        long limit = findMaxArgument(method, repeats);
-        logger.info("Limit {}", limit);
+    private void evaluateMethod(Method method) throws IllegalAccessException, InvocationTargetException, ClassNotFoundException {
+        if (Config.value("mode").equals("auto")) {
+            int repeats = 4;
+            long limit = findMaxArgument(method, repeats);
+            fillPoints(method, limit, Integer.parseInt(Config.value("result.point.count")));
+            logger.info("Limit {}", limit);
+        } else if (Config.value("mode").equals("manual")) {
+            invokeManual(method);
+        } else {
+            logger.error("config mode not auto or manual");
+        }
+    }
+
+    private void invokeManual(Method method) throws InvocationTargetException, IllegalAccessException, ClassNotFoundException {
+        String input = Config.value("input.value");
+        Properties inputConfig = Config.get(Config.value("input.config"));
+        Object output = timeMethod(method, Long.parseLong(inputConfig.getProperty("input.size")), input);
+        Class<?> outputClass = parseParameters(Config.value("function.return"))[0];
+        Object outputCast = outputClass.cast(output);
+        String expected = inputConfig.getProperty("output");
+        Object expectedCast = outputClass.cast(expected);
+        if (outputCast.equals(expectedCast)) {
+            logger.info("function returned correct value");
+        } else {
+            logger.error("function returned wrong value {} expected {}", outputCast, expectedCast);
+        }
+    }
+
+    private void fillPoints(Method method, long limit, int points) {
+        ExecutorService executor = Executors.newFixedThreadPool(1);
+        for (int i = 0; i < limit; i += limit / points) {
+            logger.info("fillPoints {}", i);
+            final long current_ = i;
+            Future<List<Long>> submit = executor.submit(() -> evaluateMethod(method, 2, current_));
+            try {
+                submit.get(5 * TIME_LIMIT, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException | ExecutionException | InterruptedException e) {
+                submit.cancel(true);
+            }
+        }
+        executor.shutdownNow();
     }
 
     private long findMaxArgument(final Method method, final int times) throws InvocationTargetException, IllegalAccessException {
@@ -143,6 +180,7 @@ public class Evaluator {
     }
 
     private long evaluateMethodOnce(Method method, long n) throws InvocationTargetException, IllegalAccessException {
+        // TODO try use timeMethod
         long time = System.currentTimeMillis();
         method.invoke(null, n);
         long timeSpent = System.currentTimeMillis() - time;
@@ -151,4 +189,11 @@ public class Evaluator {
         return timeSpent;
     }
 
+    private Object timeMethod(Method method, long size, Object... args) throws InvocationTargetException, IllegalAccessException {
+        long time = System.currentTimeMillis();
+        Object output = method.invoke(null, args);
+        long timeSpent = System.currentTimeMillis() - time;
+        results.addTime(size, timeSpent);
+        return output;
+    }
 }

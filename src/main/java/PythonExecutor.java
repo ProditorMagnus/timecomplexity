@@ -14,8 +14,8 @@ public class PythonExecutor extends FunctionExecutor {
     }
 
     @Override
-    public void start() {
-
+    public ResultHolder start() {
+        return null;
     }
 
 

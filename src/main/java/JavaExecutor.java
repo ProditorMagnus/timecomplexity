@@ -64,13 +64,13 @@ public class JavaExecutor extends FunctionExecutor {
     }
 
     @Override
-    public void start() {
+    public ResultHolder start() {
         Class<?> loadedClass = loadClass();
         if (loadedClass == null) {
             logger.error("no class loaded");
-            return;
+            return null;
         }
         Evaluator evaluator = new Evaluator(loadedClass);
-        evaluator.estimate();
+        return evaluator.estimate();
     }
 }
