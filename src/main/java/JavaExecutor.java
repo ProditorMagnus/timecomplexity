@@ -26,8 +26,6 @@ public class JavaExecutor extends FunctionExecutor {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics, null, null)) {
 
-            // This sets up the class path that the compiler will use.
-            // I've added the .jar file that contains the DoStuff interface within in it...
             List<String> optionList = new ArrayList<>();
             optionList.add("-classpath");
             optionList.add(System.getProperty("java.class.path"));

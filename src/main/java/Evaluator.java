@@ -28,6 +28,42 @@ public class Evaluator {
         System.out.println(results.average());
     }
 
+    public static Class<?>[] parseParameters(String s) throws ClassNotFoundException {
+        String[] split = s.split(",");
+        Class<?>[] parameters = new Class[split.length];
+        for (int i = 0; i < split.length; i++) {
+            switch (split[i]) {
+                case "boolean":
+                    parameters[i] = boolean.class;
+                    break;
+                case "byte":
+                    parameters[i] = byte.class;
+                    break;
+                case "short":
+                    parameters[i] = short.class;
+                    break;
+                case "int":
+                    parameters[i] = int.class;
+                    break;
+                case "long":
+                    parameters[i] = long.class;
+                    break;
+                case "float":
+                    parameters[i] = float.class;
+                    break;
+                case "double":
+                    parameters[i] = double.class;
+                    break;
+                case "char":
+                    parameters[i] = char.class;
+                    break;
+                default:
+                    parameters[i] = Class.forName(split[i]);
+            }
+        }
+        return parameters;
+    }
+
     private void evaluate() throws InvocationTargetException, IllegalAccessException {
         for (Method method : target.getMethods()) {
             if (Modifier.isStatic(method.getModifiers()) &&

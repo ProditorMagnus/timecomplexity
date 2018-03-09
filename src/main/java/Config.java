@@ -12,10 +12,8 @@ public class Config {
     private static Properties loadConfig(String fileName) {
         Properties prop = new Properties();
         try (InputStream inputStream = Files.newInputStream(Paths.get(fileName))) {
-
             prop.load(inputStream);
         } catch (IOException e) {
-
             return prop;
         }
         cache.put(fileName, prop);
@@ -23,10 +21,6 @@ public class Config {
     }
 
     public static Properties get(String fileName) {
-        Properties properties = cache.get(fileName);
-        if (properties == null) {
-            return loadConfig(fileName);
-        }
-        return properties;
+        return cache.computeIfAbsent(fileName, Config::loadConfig);
     }
 }
