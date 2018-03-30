@@ -9,7 +9,7 @@ import java.util.concurrent.*;
 
 public class Evaluator {
     private static final Logger logger = LoggerFactory.getLogger(Evaluator.class);
-    private static final long TIME_LIMIT = 2000;
+    private static final long TIME_LIMIT = 1000;
     private final Class<?> target;
     private final double PRECISION = 0.6;
 
@@ -66,12 +66,15 @@ public class Evaluator {
 
     private void evaluate() throws InvocationTargetException, IllegalAccessException, ClassNotFoundException {
         for (Method method : target.getMethods()) {
+            logger.info("checking method {} with parameters {} needed parameters {}", method.getName(), method.getParameterTypes(), parseParameters(Config.get("config.properties").getProperty("function.parameter")));
             if (Modifier.isStatic(method.getModifiers()) && Arrays.equals(method.getParameterTypes(),
                     parseParameters(Config.get("config.properties").getProperty("function.parameter")))) {
                 evaluateMethod(method);
                 logger.info("results {}", results);
+                return;
             }
         }
+        logger.error("No method of required signature was found {}", Config.get("config.properties").getProperty("function.parameter"));
     }
 
     private void evaluateMethod(Method method) throws IllegalAccessException, InvocationTargetException, ClassNotFoundException {

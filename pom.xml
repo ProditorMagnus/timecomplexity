@@ -17,6 +17,39 @@
                     <target>1.8</target>
                 </configuration>
             </plugin>
+            <!--<plugin>-->
+            <!--<groupId>org.apache.maven.plugins</groupId>-->
+            <!--<artifactId>maven-jar-plugin</artifactId>-->
+            <!--<version>3.0.2</version>-->
+            <!--<configuration>-->
+            <!--<archive>-->
+            <!--<manifest>-->
+            <!--<mainClass>Main</mainClass>-->
+            <!--</manifest>-->
+            <!--</archive>-->
+            <!--</configuration>-->
+            <!--</plugin>-->
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>Main</mainClass>
+                        </manifest>
+                    </archive>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
@@ -27,9 +60,9 @@
     <dependencies>
         <!-- https://mvnrepository.com/artifact/org.python/jython -->
         <!--<dependency>-->
-            <!--<groupId>org.python</groupId>-->
-            <!--<artifactId>jython</artifactId>-->
-            <!--<version>2.7.0</version>-->
+        <!--<groupId>org.python</groupId>-->
+        <!--<artifactId>jython</artifactId>-->
+        <!--<version>2.7.0</version>-->
         <!--</dependency>-->
         <dependency>
             <groupId>org.slf4j</groupId>
