@@ -71,6 +71,10 @@ public class ResultHolder {
     }
 
     public void getFunction() {
+        if (results.size() < 10) {
+            logger.warn("Not enough results to attempt finding function, size: {}", results.size());
+            return;
+        }
         Path path = Paths.get("python", "find_complexity.py");
         ProcessBuilder pb = new ProcessBuilder("python3", path.toAbsolutePath().toString());
         pb.redirectErrorStream(true);

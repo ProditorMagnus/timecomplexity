@@ -6,10 +6,14 @@ public class Main {
         Properties properties = Config.get("config.properties");
 //        System.out.println(properties.getProperty("loc.source.java"));
 //        Evaluator evaluator = new Evaluator(Example_2.class);
-        FunctionExecutor executor = new JavaExecutor(Paths.get(properties.getProperty("loc.source.java"), properties.getProperty("loc.source.file")));
+        String fileName = properties.getProperty("loc.source.file");
+        FunctionExecutor executor;
+        if (fileName.endsWith(".java")) {
+            executor = new JavaExecutor(Paths.get(properties.getProperty("loc.source.java"), fileName));
+        } else {
+            executor = new PythonExecutor(Paths.get(properties.getProperty("loc.source.python"), fileName));
+        }
         ResultHolder results = executor.start();
-//        new PythonExecutor().run();
-//        ResultHolder results = executor.start();
 //        results.printResults();
         results.getFunction();
         System.out.println("end");

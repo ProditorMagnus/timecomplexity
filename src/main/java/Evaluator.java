@@ -1,11 +1,15 @@
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 public class Evaluator {
     private static final Logger logger = LoggerFactory.getLogger(Evaluator.class);
@@ -64,7 +68,7 @@ public class Evaluator {
         return parameters;
     }
 
-    private void evaluate() throws InvocationTargetException, IllegalAccessException, ClassNotFoundException {
+    private void evaluate() throws InvocationTargetException, IllegalAccessException, ClassNotFoundException, IOException, InstantiationException {
         for (Method method : target.getMethods()) {
             logger.info("checking method {} with parameters {} needed parameters {}", method.getName(), method.getParameterTypes(), parseParameters(Config.get("config.properties").getProperty("function.parameter")));
             if (Modifier.isStatic(method.getModifiers()) && Arrays.equals(method.getParameterTypes(),
@@ -77,32 +81,47 @@ public class Evaluator {
         logger.error("No method of required signature was found {}", Config.get("config.properties").getProperty("function.parameter"));
     }
 
-    private void evaluateMethod(Method method) throws IllegalAccessException, InvocationTargetException, ClassNotFoundException {
+    private void evaluateMethod(Method method) throws IllegalAccessException, InvocationTargetException, ClassNotFoundException, IOException, InstantiationException {
         if (Config.value("mode").equals("auto")) {
-            int repeats = 4;
+            int repeats = 2;
             long limit = findMaxArgument(method, repeats);
             fillPoints(method, limit, Integer.parseInt(Config.value("result.point.count")));
             logger.info("Limit {}", limit);
         } else if (Config.value("mode").equals("manual")) {
-            invokeManual(method);
+            int testCase = 1;
+            while (invokeManual(method, Integer.toString(testCase))) testCase++;
+
         } else {
             logger.error("config mode not auto or manual");
         }
     }
 
-    private void invokeManual(Method method) throws InvocationTargetException, IllegalAccessException, ClassNotFoundException {
-        String input = Config.value("input.value");
-        Properties inputConfig = Config.get(Config.value("input.config"));
-        Object output = timeMethod(method, Long.parseLong(inputConfig.getProperty("input.size")), input);
-        Class<?> outputClass = parseParameters(Config.value("function.return"))[0];
-        Object outputCast = outputClass.cast(output);
-        String expected = inputConfig.getProperty("output");
-        Object expectedCast = outputClass.cast(expected);
-        if (outputCast.equals(expectedCast)) {
-            logger.info("function returned correct value");
-        } else {
-            logger.error("function returned wrong value {} expected {}", outputCast, expectedCast);
+    private boolean invokeManual(Method method, String testCase) throws InvocationTargetException, IllegalAccessException, ClassNotFoundException, IOException, InstantiationException {
+        String testLocation = Config.value("loc.tests");
+        if (!Files.exists(Paths.get(testLocation, String.format("meta%s.txt", testCase)))) {
+            return false;
         }
+        long input_size = Long.valueOf(Config.get(Paths.get(testLocation, String.format("meta%s.txt", testCase)).toString()).getProperty("input_size"));
+        InputStream inputStream = Files.newInputStream(Paths.get(testLocation, String.format("input%s.txt", testCase)));
+        InputStream stdin = System.in;
+        System.setIn(inputStream);
+        ByteArrayOutputStream bout = new ByteArrayOutputStream();
+        PrintStream outputStream = new PrintStream(bout);
+        PrintStream stdout = System.out;
+        System.setOut(outputStream);
+        Object output = timeMethod(method, input_size);
+        System.setIn(stdin);
+        System.setOut(stdout);
+        List<String> functionOutput = new BufferedReader(new StringReader(bout.toString())).lines().collect(Collectors.toList());
+        logger.info("Program wrote {}", functionOutput);
+        List<String> expectedOutput = Files.readAllLines(Paths.get(testLocation, String.format("output%s.txt", testCase)));
+
+        if (functionOutput.equals(expectedOutput)) {
+            logger.info("function wrote correct value {}", functionOutput);
+        } else {
+            logger.error("function wrote incorrect value {} expected {}", functionOutput, expectedOutput);
+        }
+        return true;
     }
 
     private void fillPoints(Method method, long limit, int points) {
@@ -192,9 +211,13 @@ public class Evaluator {
         return timeSpent;
     }
 
-    private Object timeMethod(Method method, long size, Object... args) throws InvocationTargetException, IllegalAccessException {
+    private Object timeMethod(Method method, long size) throws InvocationTargetException, IllegalAccessException, InstantiationException {
+        List<Object> args = new ArrayList<>();
+        for (Class<?> ignored : method.getParameterTypes()) {
+            args.add(null);
+        }
         long time = System.currentTimeMillis();
-        Object output = method.invoke(null, args);
+        Object output = method.invoke(null, args.toArray());
         long timeSpent = System.currentTimeMillis() - time;
         results.addTime(size, timeSpent);
         return output;
