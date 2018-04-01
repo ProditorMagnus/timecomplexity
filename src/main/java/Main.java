@@ -4,8 +4,6 @@ import java.util.Properties;
 public class Main {
     public static void main(String[] args) {
         Properties properties = Config.get("config.properties");
-//        System.out.println(properties.getProperty("loc.source.java"));
-//        Evaluator evaluator = new Evaluator(Example_2.class);
         String fileName = properties.getProperty("loc.source.file");
         FunctionExecutor executor;
         if (fileName.endsWith(".java")) {
@@ -14,7 +12,8 @@ public class Main {
             executor = new PythonExecutor(Paths.get(properties.getProperty("loc.source.python"), fileName));
         }
         ResultHolder results = executor.start();
-//        results.printResults();
+        System.out.println(results);
+        results.printResults();
         results.getFunction();
         System.out.println("end");
 //        System.exit(0); // TODO find way without system.exit to kill submitted tasks

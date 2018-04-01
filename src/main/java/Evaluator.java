@@ -69,9 +69,9 @@ public class Evaluator {
     }
 
     private void evaluate() throws InvocationTargetException, IllegalAccessException, ClassNotFoundException, IOException, InstantiationException {
-        for (Method method : target.getMethods()) {
+        for (Method method : target.getDeclaredMethods()) {
             logger.info("checking method {} with parameters {} needed parameters {}", method.getName(), method.getParameterTypes(), parseParameters(Config.get("config.properties").getProperty("function.parameter")));
-            if (Modifier.isStatic(method.getModifiers()) && Arrays.equals(method.getParameterTypes(),
+            if (Modifier.isPublic(method.getModifiers()) && Modifier.isStatic(method.getModifiers()) && Arrays.equals(method.getParameterTypes(),
                     parseParameters(Config.get("config.properties").getProperty("function.parameter")))) {
                 evaluateMethod(method);
                 logger.info("results {}", results);
@@ -101,18 +101,18 @@ public class Evaluator {
         if (!Files.exists(Paths.get(testLocation, String.format("meta%s.txt", testCase)))) {
             return false;
         }
-        long input_size = Long.valueOf(Config.get(Paths.get(testLocation, String.format("meta%s.txt", testCase)).toString()).getProperty("input_size"));
+        long input_size = Long.parseLong(Config.get(Paths.get(testLocation, String.format("meta%s.txt", testCase)).toString()).getProperty("input_size"));
         InputStream inputStream = Files.newInputStream(Paths.get(testLocation, String.format("input%s.txt", testCase)));
         InputStream stdin = System.in;
         System.setIn(inputStream);
         ByteArrayOutputStream bout = new ByteArrayOutputStream();
-        PrintStream outputStream = new PrintStream(bout);
+        PrintStream outputStream = new PrintStream(bout, true, "UTF-8");
         PrintStream stdout = System.out;
         System.setOut(outputStream);
-        Object output = timeMethod(method, input_size);
+        timeMethod(method, input_size);
         System.setIn(stdin);
         System.setOut(stdout);
-        List<String> functionOutput = new BufferedReader(new StringReader(bout.toString())).lines().collect(Collectors.toList());
+        List<String> functionOutput = new BufferedReader(new StringReader(bout.toString("UTF-8"))).lines().collect(Collectors.toList());
         logger.info("Program wrote {}", functionOutput);
         List<String> expectedOutput = Files.readAllLines(Paths.get(testLocation, String.format("output%s.txt", testCase)));
 

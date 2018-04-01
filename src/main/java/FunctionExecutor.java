@@ -9,6 +9,9 @@ public abstract class FunctionExecutor {
     }
 
     public FunctionExecutor(Path source) {
+        if (source == null || source.getFileName() == null) {
+            throw new IllegalArgumentException("Source file is missing");
+        }
         this.source = source;
     }
 

@@ -2,6 +2,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -82,8 +83,8 @@ public class ResultHolder {
             Process p = pb.start();
             OutputStream stdin = p.getOutputStream();
             InputStream stdout = p.getInputStream();
-            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(stdin));
-            BufferedReader reader = new BufferedReader(new InputStreamReader(stdout));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(stdin, Charset.forName("UTF-8")));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(stdout, Charset.forName("UTF-8")));
             writer.write(getSize());
             writer.newLine();
             writer.write(getTime());
