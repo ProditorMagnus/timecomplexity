@@ -20,7 +20,7 @@ public class JavaExecutor extends FunctionExecutor {
         className = source.getFileName().toString().replaceFirst("\\.java", "");
     }
 
-    private Class<?> loadClass() {
+    public Class<?> loadClass() {
         // https://stackoverflow.com/a/21544850/3667389
         DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
@@ -43,7 +43,7 @@ public class JavaExecutor extends FunctionExecutor {
             if (task.call()) {
                 // Create a new custom class loader, pointing to the directory that contains the compiled
                 // classes, this should point to the top of the package structure!
-                URLClassLoader classLoader = new URLClassLoader(new URL[]{new File(Config.get("config.properties").getProperty("loc.source.java")).toURI().toURL()});
+                URLClassLoader classLoader = new URLClassLoader(new URL[]{new File(Config.value("loc.source.java")).toURI().toURL()});
                 // Load the class from the classloader by name....
                 Class<?> loadedClass = classLoader.loadClass(className);
                 logger.info("Loaded class");

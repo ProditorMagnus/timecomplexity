@@ -9,18 +9,40 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class Evaluator {
     private static final Logger logger = LoggerFactory.getLogger(Evaluator.class);
-    private static final long TIME_LIMIT = 1000;
+    private final long TIME_LIMIT;
     private final Class<?> target;
-    private final double PRECISION = 0.6;
+    private final Function<Long, Object> inputProvider;
+    private final double PRECISION;
+
 
     private final ResultHolder results = new ResultHolder();
 
     public Evaluator(Class<?> target) {
         this.target = target;
+        TIME_LIMIT = Config.valueAsLong("function.goal.time", 1000L);
+        PRECISION = Config.valueAsDouble("function.goal.offset", 0.75);
+
+        if (Objects.equals(Config.value("function.parameter"), "long")) {
+            inputProvider = aLong -> aLong;
+        } else {
+            try {
+                final Method inputClass = new JavaExecutor(Paths.get(Config.value("loc.source.java"), "DataGen.java")).loadClass().getMethod("getInput", long.class);
+                inputProvider = aLong -> {
+                    try {
+                        return inputClass.invoke(null, aLong);
+                    } catch (IllegalAccessException | InvocationTargetException e) {
+                        throw new RuntimeException("Generating input failed", e);
+                    }
+                };
+            } catch (NoSuchMethodException e) {
+                throw new RuntimeException("No method to generate input from long");
+            }
+        }
     }
 
     public ResultHolder estimate() {
@@ -68,31 +90,60 @@ public class Evaluator {
         return parameters;
     }
 
+    private Object getInput(long n) {
+        return inputProvider.apply(n);
+    }
+
     private void evaluate() throws InvocationTargetException, IllegalAccessException, ClassNotFoundException, IOException, InstantiationException {
         for (Method method : target.getDeclaredMethods()) {
-            logger.info("checking method {} with parameters {} needed parameters {}", method.getName(), method.getParameterTypes(), parseParameters(Config.get("config.properties").getProperty("function.parameter")));
-            if (Modifier.isPublic(method.getModifiers()) && Modifier.isStatic(method.getModifiers()) && Arrays.equals(method.getParameterTypes(),
-                    parseParameters(Config.get("config.properties").getProperty("function.parameter")))) {
-                evaluateMethod(method);
-                logger.info("results {}", results);
-                return;
+            if (!Modifier.isPublic(method.getModifiers()) || !Modifier.isStatic(method.getModifiers())) {
+                continue;
+            }
+            if (Config.valueAsString("function.parameter", null) == null) {
+                logger.info("checking method {}, needed {}", method.getName(), Config.value("function.name"));
+                if (Objects.equals(method.getName(), Config.value("function.name"))) {
+                    evaluateMethod(method);
+                    logger.info("results {}", results);
+                    return;
+                }
+            } else {
+                logger.info("checking method {} with parameters {} needed parameters {}", method.getName(), method.getParameterTypes(), parseParameters(Config.value("function.parameter")));
+                if (Arrays.equals(method.getParameterTypes(),
+                        parseParameters(Config.value("function.parameter")))) {
+                    evaluateMethod(method);
+                    logger.info("results {}", results);
+                    return;
+                }
             }
         }
-        logger.error("No method of required signature was found {}", Config.get("config.properties").getProperty("function.parameter"));
+        logger.error("No method of required signature was found {}", Config.value("function.parameter"));
     }
 
     private void evaluateMethod(Method method) throws IllegalAccessException, InvocationTargetException, ClassNotFoundException, IOException, InstantiationException {
-        if (Config.value("mode").equals("auto")) {
-            int repeats = 2;
-            long limit = findMaxArgument(method, repeats);
-            fillPoints(method, limit, Integer.parseInt(Config.value("result.point.count")));
-            logger.info("Limit {}", limit);
-        } else if (Config.value("mode").equals("manual")) {
-            int testCase = 1;
-            while (invokeManual(method, Integer.toString(testCase))) testCase++;
+        switch (Config.value("mode")) {
+            case "auto":
+                Long maxN = Config.valueAsLong("function.n.max", (long) Integer.MAX_VALUE);
+                Long minN = Config.valueAsLong("function.n.min", 0L);
+                Long pointCount = Config.valueAsLong("result.point.count", 100L);
+                int repeats = 2;
+                long limit;
+                if (maxN - minN < pointCount || Config.valueAsLong("function.n.point_only", 0L) != 0) {
+                    limit = maxN;
+                } else {
+                    limit = findMaxArgument(method, repeats, minN, maxN);
+                }
 
-        } else {
-            logger.error("config mode not auto or manual");
+                logger.info("Limit {}", limit);
+                fillPoints(method, limit, Math.toIntExact(pointCount));
+                break;
+            case "manual":
+                int testCase = 1;
+                while (invokeManual(method, Integer.toString(testCase))) testCase++;
+
+                break;
+            default:
+                logger.error("config mode not auto or manual");
+                break;
         }
     }
 
@@ -126,7 +177,9 @@ public class Evaluator {
 
     private void fillPoints(Method method, long limit, int points) {
         ExecutorService executor = Executors.newFixedThreadPool(1);
-        for (int i = 0; i < limit; i += limit / points) {
+        long increment = limit / points;
+        if (limit <= points) increment = 1;
+        for (long i = 0; i < limit; i += increment) {
             logger.info("fillPoints {}", i);
             final long current_ = i;
             Future<List<Long>> submit = executor.submit(() -> evaluateMethod(method, 2, current_));
@@ -134,15 +187,19 @@ public class Evaluator {
                 submit.get(5 * TIME_LIMIT, TimeUnit.MILLISECONDS);
             } catch (TimeoutException | ExecutionException | InterruptedException e) {
                 submit.cancel(true);
+                if (e instanceof TimeoutException) {
+                    logger.error("fillPoints timeout at {}", i);
+                    System.exit(1);
+                }
             }
         }
         executor.shutdownNow();
     }
 
-    private long findMaxArgument(final Method method, final int times) throws InvocationTargetException, IllegalAccessException {
-        long low = 0;
-        long high = Long.MAX_VALUE;
-        long current = 0;
+    private long findMaxArgument(final Method method, final int times, final long minN, final long maxN) throws InvocationTargetException, IllegalAccessException {
+        long low = minN;
+        long high = maxN;
+        long current = minN;
         boolean found_windows = false;
         ExecutorService executor = Executors.newFixedThreadPool(1);
         Set<Long> attemptedValues = new HashSet<>();
@@ -169,16 +226,15 @@ public class Evaluator {
             }
             logger.info("current {} -> avg {}", current, average);
 
-            if (average < TIME_LIMIT * PRECISION) {
+            if (average < TIME_LIMIT - TIME_LIMIT * PRECISION) {
                 low = current;
-//                current = current + 1 + 2 * min;
                 if (!found_windows) {
                     current *= 2;
                     current++;
                 } else {
                     current = (low + high) / 2;
                 }
-            } else if (average > TIME_LIMIT / PRECISION) {
+            } else if (average > TIME_LIMIT + TIME_LIMIT * PRECISION) {
                 high = current;
                 found_windows = true;
                 current = (low + high) / 2;
@@ -186,6 +242,10 @@ public class Evaluator {
                     current--;
                 }
             } else {
+                break;
+            }
+            if (current > maxN) {
+                current = maxN;
                 break;
             }
         }
@@ -204,7 +264,7 @@ public class Evaluator {
     private long evaluateMethodOnce(Method method, long n) throws InvocationTargetException, IllegalAccessException {
         // TODO try use timeMethod
         long time = System.currentTimeMillis();
-        method.invoke(null, n);
+        method.invoke(null, getInput(n));
         long timeSpent = System.currentTimeMillis() - time;
         logger.info("Time spent for {}: {}", n, timeSpent);
         results.addTime(n, timeSpent);
