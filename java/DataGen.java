@@ -2,7 +2,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class DataGen {
     public static Object getInput(long n) {
-        return generateBitString(n);
+//        return generateBitString(n);
+        return n;
 //        return generateLongArray(n, 0, Long.MAX_VALUE);
     }
 
