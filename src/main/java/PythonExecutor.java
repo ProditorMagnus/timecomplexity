@@ -39,6 +39,20 @@ public class PythonExecutor extends FunctionExecutor {
                 Long maxN = Config.valueAsLong("function.n.max", (long) Integer.MAX_VALUE);
                 Long minN = Config.valueAsLong("function.n.min", 0L);
                 Long pointCount = Config.valueAsLong("result.point.count", 100L);
+                String pythonPath = Config.value("loc.source.python");
+                String sourceFile = Config.value("loc.source.file").replaceFirst("\\.py$", "");
+                try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(pythonPath, "python_runner.py"), Charset.forName("utf8"), StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
+                    String runnerBase = "import %s as source%n" +
+                            "import time%n" +
+                            "import sys%n" +
+                            "start_time=(time.time())%n" +
+                            "source.%s(int(sys.argv[1]))%n" +
+                            "end_time=(time.time())%n" +
+                            "print(1000*(end_time-start_time))%n";
+                    writer.write(String.format(runnerBase, sourceFile, Config.value("function.name")));
+                } catch (IOException e) {
+                    logger.error("IOE", e);
+                }
                 int repeats = 2;
                 long limit;
                 if (maxN - minN < pointCount || Config.valueAsLong("function.n.point_only", 0L) != 0) {
@@ -59,19 +73,6 @@ public class PythonExecutor extends FunctionExecutor {
 
     private long findMaxArgument(int repeats, Long minN, Long maxN) {
         String pythonPath = Config.value("loc.source.python");
-        String sourceFile = Config.value("loc.source.file").replaceFirst("\\.py$", "");
-        try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(pythonPath, "python_runner.py"), Charset.forName("utf8"), StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
-            String runnerBase = "import %s as source%n" +
-                    "import time%n" +
-                    "import sys%n" +
-                    "start_time=(time.time())%n" +
-                    "source.start(int(sys.argv[1]))%n" +
-                    "end_time=(time.time())%n" +
-                    "print(1000*(end_time-start_time))%n";
-            writer.write(String.format(runnerBase, sourceFile));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
         long low = minN;
         long high = maxN;
         long current = minN;
