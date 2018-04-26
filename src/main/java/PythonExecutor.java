@@ -43,11 +43,13 @@ public class PythonExecutor extends FunctionExecutor {
                 String sourceFile = Config.value("loc.source.file").replaceFirst("\\.py$", "");
                 try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(pythonPath, "python_runner.py"), Charset.forName("utf8"), StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
                     String runnerBase = "import %s as source%n" +
+                            "import datagen%n" +
                             "import time%n" +
                             "import sys%n" +
-                            "start_time=(time.time())%n" +
-                            "source.%s(int(sys.argv[1]))%n" +
-                            "end_time=(time.time())%n" +
+                            "input_value = datagen.getInput(int(sys.argv[1]))%n" +
+                            "start_time = (time.time())%n" +
+                            "source.%s(input_value)%n" +
+                            "end_time = (time.time())%n" +
                             "print(1000*(end_time-start_time))%n";
                     writer.write(String.format(runnerBase, sourceFile, Config.value("function.name")));
                 } catch (IOException e) {
@@ -161,7 +163,7 @@ public class PythonExecutor extends FunctionExecutor {
     }
 
 
-    public boolean invokeManual(String testCase) {
+    private boolean invokeManual(String testCase) {
         String testLocation = Config.value("loc.tests");
         if (!Files.exists(Paths.get(testLocation, String.format("meta%s.txt", testCase)))) {
             return false;
