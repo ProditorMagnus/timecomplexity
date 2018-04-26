@@ -17,7 +17,6 @@ public class Evaluator {
     private final long TIME_LIMIT;
     private final Class<?> target;
     private final Function<Long, Object> inputProvider;
-    private final double PRECISION;
 
 
     private final ResultHolder results = new ResultHolder();
@@ -25,7 +24,6 @@ public class Evaluator {
     public Evaluator(Class<?> target) {
         this.target = target;
         TIME_LIMIT = Config.valueAsLong("function.goal.time", 1000L);
-        PRECISION = Config.valueAsDouble("function.goal.offset", 0.75);
 
         if (Objects.equals(Config.value("function.parameter"), "long")) {
             inputProvider = aLong -> aLong;
@@ -197,60 +195,33 @@ public class Evaluator {
     }
 
     private long findMaxArgument(final Method method, final int times, final long minN, final long maxN) throws InvocationTargetException, IllegalAccessException {
-        long low = minN;
-        long high = maxN;
-        long current = minN;
-        boolean found_windows = false;
+
+        GuessProvider guessProvider = new GuessProvider(minN, maxN);
         ExecutorService executor = Executors.newFixedThreadPool(1);
-        Set<Long> attemptedValues = new HashSet<>();
         while (true) {
-            final long current_ = current;
-            Future<List<Long>> submit = executor.submit(() -> evaluateMethod(method, times, current_));
+            final long current = guessProvider.getCurrent();
+            Future<List<Long>> submit = executor.submit(() -> evaluateMethod(method, times, current));
             double average;
-            if (!attemptedValues.add(current)) {
-                logger.error("Same current attempted multiple times {} {} {}", low, current, high);
-                submit.cancel(true);
-                break;
-            }
             try {
-                logger.info("getting at {}", current_);
+                logger.info("getting at {}", current);
                 List<Long> longs = submit.get(5 * TIME_LIMIT, TimeUnit.MILLISECONDS);
                 logger.info("got longs {}", longs);
                 average = longs.stream().mapToLong(Long::new).average().orElse(Double.MAX_VALUE);
             } catch (TimeoutException | ExecutionException | InterruptedException e) {
                 average = Double.MAX_VALUE;
-                logger.info("timeout {}", current_);
+                logger.info("timeout {}", current);
                 results.addTime(current, null);
                 logger.error("e", e);
                 submit.cancel(true);
             }
             logger.info("current {} -> avg {}", current, average);
 
-            if (average < TIME_LIMIT - TIME_LIMIT * PRECISION) {
-                low = current;
-                if (!found_windows) {
-                    current *= 2;
-                    current++;
-                } else {
-                    current = (low + high) / 2;
-                }
-            } else if (average > TIME_LIMIT + TIME_LIMIT * PRECISION) {
-                high = current;
-                found_windows = true;
-                current = (low + high) / 2;
-                if (attemptedValues.contains(current)) {
-                    current--;
-                }
-            } else {
-                break;
-            }
-            if (current > maxN) {
-                current = maxN;
+            if (guessProvider.findNext(average)) {
                 break;
             }
         }
         executor.shutdownNow();
-        return current;
+        return guessProvider.getCurrent();
     }
 
     private List<Long> evaluateMethod(Method method, int times, long n) throws InvocationTargetException, IllegalAccessException {

@@ -3,23 +3,21 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.charset.Charset;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class PythonExecutor extends FunctionExecutor {
     private static final Logger logger = LoggerFactory.getLogger(PythonExecutor.class);
-    private final double PRECISION;
-    private final long TIME_LIMIT;
 
     public PythonExecutor(Path source) {
         super(source);
-        TIME_LIMIT = Config.valueAsLong("function.goal.time", 1000L);
-        PRECISION = Config.valueAsDouble("function.goal.offset", 0.75);
+
     }
 
     //https://stackoverflow.com/a/1574857/3667389
@@ -75,46 +73,20 @@ public class PythonExecutor extends FunctionExecutor {
 
     private long findMaxArgument(int repeats, Long minN, Long maxN) {
         String pythonPath = Config.value("loc.source.python");
-        long low = minN;
-        long high = maxN;
-        long current = minN;
-        boolean found_windows = false;
-        Set<Long> attemptedValues = new HashSet<>();
+        GuessProvider guessProvider = new GuessProvider(minN, maxN);
         while (true) {
-            if (!attemptedValues.add(current)) {
-                logger.error("Same current attempted multiple times {} {} {}", low, current, high);
-                break;
-            }
+            long current = guessProvider.getCurrent();
             List<Long> currentTimes = new ArrayList<>();
             for (int i = 0; i < repeats; i++) {
                 long time = runPythonFunction(pythonPath, current);
                 currentTimes.add(time);
             }
             double average = currentTimes.stream().reduce(0L, (aLong, aLong2) -> aLong + aLong2) / currentTimes.size();
-            if (average < TIME_LIMIT - TIME_LIMIT * PRECISION) {
-                low = current;
-                if (!found_windows) {
-                    current *= 2;
-                    current++;
-                } else {
-                    current = (low + high) / 2;
-                }
-            } else if (average > TIME_LIMIT + TIME_LIMIT * PRECISION) {
-                high = current;
-                found_windows = true;
-                current = (low + high) / 2;
-                if (attemptedValues.contains(current)) {
-                    current--;
-                }
-            } else {
-                break;
-            }
-            if (current > maxN) {
-                current = maxN;
+            if (guessProvider.findNext(average)) {
                 break;
             }
         }
-        return current;
+        return guessProvider.getCurrent();
     }
 
     private void fillPoints(long limit, int points) {
@@ -216,4 +188,6 @@ public class PythonExecutor extends FunctionExecutor {
         }
         return true;
     }
+
+
 }
