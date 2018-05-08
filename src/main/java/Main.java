@@ -14,7 +14,8 @@ public class Main {
         ResultHolder results = executor.start();
         System.out.println(results);
         results.printResults();
-        results.getFunction();
+        results.getFunctionWithPython();
+        System.out.println(results.getFunction());
         System.out.println("end");
 //        System.exit(0); // TODO find way without system.exit to kill submitted tasks
     }

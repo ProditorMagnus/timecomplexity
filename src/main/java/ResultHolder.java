@@ -71,7 +71,19 @@ public class ResultHolder {
         System.out.println("Comment :=>> " + s);
     }
 
-    public void getFunction() {
+    public String getFunction() {
+        double[] x = new double[results.size()];
+        double[] y = new double[results.size()];
+        int i = 0;
+        for (Map.Entry<Long, Long> entry : average().entrySet()) {
+            x[i] = entry.getKey();
+            y[i] = entry.getValue();
+            i++;
+        }
+        return CurveFit.findFunction(x, y);
+    }
+
+    public void getFunctionWithPython() {
         if (results.size() < 10) {
             logger.warn("Not enough results to attempt finding function, size: {}", results.size());
             return;

@@ -28,7 +28,7 @@ public class JavaExecutor extends FunctionExecutor {
         className = source.getFileName().toString().replaceFirst("\\.java", "");
     }
 
-    public Class<?> loadClass() {
+    private Class<?> loadClass() {
         // https://stackoverflow.com/a/21544850/3667389
         DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();

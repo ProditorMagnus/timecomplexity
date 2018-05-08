@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 
 public class PythonExecutor extends FunctionExecutor {
     private static final Logger logger = LoggerFactory.getLogger(PythonExecutor.class);
+    private long TIME_LIMIT;
 
     public PythonExecutor(Path source) {
         super(source);
@@ -21,9 +22,8 @@ public class PythonExecutor extends FunctionExecutor {
     }
 
     //https://stackoverflow.com/a/1574857/3667389
-    private static void copyStream(InputStream input, OutputStream output)
-            throws IOException {
-        byte[] buffer = new byte[1024]; // Adjust if you want
+    private static void copyStream(InputStream input, OutputStream output) throws IOException {
+        byte[] buffer = new byte[4096];
         int bytesRead;
         while ((bytesRead = input.read(buffer)) != -1) {
             output.write(buffer, 0, bytesRead);
@@ -32,6 +32,7 @@ public class PythonExecutor extends FunctionExecutor {
 
     @Override
     public ResultHolder start() {
+        TIME_LIMIT = Config.valueAsLong("function.goal.time", 1000L);
         switch (Config.value("mode")) {
             case "auto":
                 Long maxN = Config.valueAsLong("function.n.max", (long) Integer.MAX_VALUE);
@@ -52,6 +53,7 @@ public class PythonExecutor extends FunctionExecutor {
                     writer.write(String.format(runnerBase, sourceFile, Config.value("function.name")));
                 } catch (IOException e) {
                     logger.error("IOE", e);
+                    return results;
                 }
                 int repeats = 2;
                 long limit;
@@ -106,14 +108,7 @@ public class PythonExecutor extends FunctionExecutor {
             long time = System.currentTimeMillis();
             Process p = pb.start();
             InputStream stdout = p.getInputStream();
-            try {
-                if (!p.waitFor(10000, TimeUnit.MILLISECONDS)) {
-                    throw new InterruptedException("Timed out");
-                }
-            } catch (InterruptedException e) {
-                p.destroy();
-                logger.error("Timed out", e);
-            }
+            waitForProcess(p);
             InputStreamReader stdoutStreamReader = new InputStreamReader(stdout, Charset.forName("UTF-8"));
             BufferedReader stdoutReader = new BufferedReader(stdoutStreamReader);
             List<String> functionOutput = stdoutReader.lines().collect(Collectors.toList());
@@ -132,6 +127,17 @@ public class PythonExecutor extends FunctionExecutor {
             e.printStackTrace();
         }
         return -1;
+    }
+
+    private void waitForProcess(Process p) {
+        try {
+            if (!p.waitFor(5 * TIME_LIMIT, TimeUnit.MILLISECONDS)) {
+                throw new InterruptedException("Timed out");
+            }
+        } catch (InterruptedException e) {
+            p.destroy();
+            logger.error("Timed out", e);
+        }
     }
 
 
@@ -156,14 +162,7 @@ public class PythonExecutor extends FunctionExecutor {
             inputStream.close();
             fileIS.close();
 
-            try {
-                if (!p.waitFor(10000, TimeUnit.MILLISECONDS)) {
-                    throw new InterruptedException("Timed out");
-                }
-            } catch (InterruptedException e) {
-                p.destroy();
-                logger.error("Timed out", e);
-            }
+            waitForProcess(p);
             InputStreamReader stdoutStreamReader = new InputStreamReader(stdout, Charset.forName("UTF-8"));
             BufferedReader stdoutReader = new BufferedReader(stdoutStreamReader);
             List<String> functionOutput = stdoutReader.lines().collect(Collectors.toList());
