@@ -39,7 +39,7 @@ public class Config {
     public static Long valueAsLong(String key, Long fallback) {
         String value = value(key);
         if (value == null || value.isEmpty()) {
-            logger.info("No config entry for {}, fallback {} used", key, fallback);
+            logger.info("Seadistus {} puudub, kasutatakse {}", key, fallback);
             return fallback;
         }
         return Long.parseLong(value);
@@ -52,7 +52,7 @@ public class Config {
     public static Double valueAsDouble(String key, Double fallback) {
         String value = value(key);
         if (value == null || value.isEmpty()) {
-            logger.info("No config entry for {}, fallback {} used", key, fallback);
+            logger.info("Seadistus {} puudub, kasutatakse {}", key, fallback);
             return fallback;
         }
         return Double.parseDouble(value);
@@ -62,7 +62,7 @@ public class Config {
     public static String valueAsString(String key, String fallback) {
         String value = value(key);
         if (value == null || value.isEmpty()) {
-            logger.info("No config entry for {}, fallback {} used", key, fallback);
+            logger.info("Seadistus {} puudub, kasutatakse {}", key, fallback);
             return fallback;
         }
         return value;

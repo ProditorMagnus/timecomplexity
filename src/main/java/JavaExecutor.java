@@ -22,6 +22,7 @@ public class JavaExecutor extends FunctionExecutor {
     private Class<?> target;
     private Function<Long, Object> inputProvider;
     private long TIME_LIMIT;
+    private boolean printprogress = Config.valueAsLong("output.printprogress", 0L) == 1;
 
     public JavaExecutor(Path source) {
         super(source);
@@ -51,22 +52,20 @@ public class JavaExecutor extends FunctionExecutor {
             if (task.call()) {
                 // Create a new custom class loader, pointing to the directory that contains the compiled
                 // classes, this should point to the top of the package structure!
-                URLClassLoader classLoader = new URLClassLoader(new URL[]{new File(Config.value("loc.source.java")).toURI().toURL()});
+                URLClassLoader classLoader = new URLClassLoader(new URL[]{new File(Config.valueAsString("source.java", ".")).toURI().toURL()});
                 // Load the class from the classloader by name....
-                Class<?> loadedClass = classLoader.loadClass(className);
-                logger.info("Loaded class");
-                return loadedClass;
+                return classLoader.loadClass(className);
             } else {
                 for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
-                    System.out.format("Error on line %d in %s%n",
+                    logger.warn("Kompileerimise probleem: {}", diagnostic.getMessage(Locale.US));
+                    logger.error("Error real {} failis {}",
                             diagnostic.getLineNumber(),
                             diagnostic.getSource().toUri());
                 }
             }
         } catch (IOException e) {
-            logger.error("IOException", e);
         } catch (ClassNotFoundException e) {
-            logger.error("Class {} not found", className);
+            logger.error("Klassi {} ei leitud", className);
         }
         return null;
     }
@@ -75,33 +74,34 @@ public class JavaExecutor extends FunctionExecutor {
     public ResultHolder start() {
         target = loadClass();
         if (target == null) {
-            logger.error("no class loaded");
-            return null;
+            logger.error("Klassi nimega {} ei õnnestunud laadida", className);
+            System.out.println("Comment :=>> Kompileerimise probleem");
+            System.exit(1);
         }
 
         TIME_LIMIT = Config.valueAsLong("function.goal.time", 1000L);
 
-        if (Objects.equals(Config.value("function.parameter"), "long")) {
+        if (Objects.equals(Config.valueAsString("function.parameter", "long"), "long")) {
             inputProvider = aLong -> aLong;
         } else {
             try {
-                final Method inputClass = new JavaExecutor(Paths.get(Config.value("loc.source.java"), "DataGen.java")).loadClass().getMethod("getInput", long.class);
+                final Method inputClass = new JavaExecutor(Paths.get(Config.valueAsString("source.java", "."), "DataGen.java")).loadClass().getMethod("getInput", long.class);
                 inputProvider = aLong -> {
                     try {
                         return inputClass.invoke(null, aLong);
                     } catch (IllegalAccessException | InvocationTargetException e) {
-                        throw new RuntimeException("Generating input failed", e);
+                        throw new RuntimeException("Sisendi genereerimine ebaõnnestus", e);
                     }
                 };
             } catch (NoSuchMethodException e) {
-                throw new RuntimeException("No method to generate input from long");
+                throw new RuntimeException("Sisendi genereerimise meetodit getInput ei leitud");
             }
         }
 
         try {
             evaluate();
         } catch (Exception e) {
-            logger.error("Evaluation failed", e);
+            logger.error("Funktsiooni analüüs ebaõnnestus", e);
         }
         return results;
     }
@@ -112,23 +112,19 @@ public class JavaExecutor extends FunctionExecutor {
                 continue;
             }
             if (Config.valueAsString("function.parameter", null) == null) {
-                logger.info("checking method {}, needed {}", method.getName(), Config.value("function.name"));
                 if (Objects.equals(method.getName(), Config.value("function.name"))) {
                     evaluateMethod(method);
-                    logger.info("results {}", results);
                     return;
                 }
             } else {
-                logger.info("checking method {} with parameters {} needed parameters {}", method.getName(), method.getParameterTypes(), parseParameters(Config.value("function.parameter")));
                 if (Arrays.equals(method.getParameterTypes(),
                         parseParameters(Config.value("function.parameter")))) {
                     evaluateMethod(method);
-                    logger.info("results {}", results);
                     return;
                 }
             }
         }
-        logger.error("No method of required signature was found {}", Config.value("function.parameter"));
+        logger.error("Sobiva nime või signatuuriga avalikku staatilist meetodit ei leitud.");
     }
 
     private void evaluateMethod(Method method) throws IllegalAccessException, InvocationTargetException, ClassNotFoundException, IOException, InstantiationException {
@@ -145,7 +141,7 @@ public class JavaExecutor extends FunctionExecutor {
                     limit = findMaxArgument(method, repeats, minN, maxN);
                 }
 
-                logger.info("Limit {}", limit);
+                logger.info("Suurim kasutatav sisendi suurus: {}", limit);
                 fillPoints(method, limit, Math.toIntExact(pointCount));
                 break;
             case "manual":
@@ -154,7 +150,7 @@ public class JavaExecutor extends FunctionExecutor {
 
                 break;
             default:
-                logger.error("config mode not auto or manual");
+                logger.error("Seadistuse probleem: mode peab olema 'auto' või 'manual'");
                 break;
         }
     }
@@ -176,13 +172,12 @@ public class JavaExecutor extends FunctionExecutor {
         System.setIn(stdin);
         System.setOut(stdout);
         List<String> functionOutput = new BufferedReader(new StringReader(bout.toString("UTF-8"))).lines().collect(Collectors.toList());
-        logger.info("Program wrote {}", functionOutput);
         List<String> expectedOutput = Files.readAllLines(Paths.get(testLocation, String.format("output%s.txt", testCase)));
 
         if (functionOutput.equals(expectedOutput)) {
-            logger.info("function wrote correct value {}", functionOutput);
+            logger.info("Programm väljastas õige vastuse '{}'", functionOutput);
         } else {
-            logger.error("function wrote incorrect value {} expected {}", functionOutput, expectedOutput);
+            logger.error("Programm väljastas '{}', aga pidi väljastama '{}'", functionOutput, expectedOutput);
         }
         return true;
     }
@@ -192,7 +187,6 @@ public class JavaExecutor extends FunctionExecutor {
         long increment = limit / points;
         if (limit <= points) increment = 1;
         for (long i = 0; i < limit; i += increment) {
-            logger.info("fillPoints {}", i);
             final long current_ = i;
             Future<List<Long>> submit = executor.submit(() -> evaluateMethod(method, 2, current_));
             try {
@@ -200,7 +194,7 @@ public class JavaExecutor extends FunctionExecutor {
             } catch (TimeoutException | ExecutionException | InterruptedException e) {
                 submit.cancel(true);
                 if (e instanceof TimeoutException) {
-                    logger.error("fillPoints timeout at {}", i);
+                    logger.error("Sisendi suurusega {} läheb liiga kaua aega", i);
                     System.exit(1);
                 }
             }
@@ -217,18 +211,13 @@ public class JavaExecutor extends FunctionExecutor {
             Future<List<Long>> submit = executor.submit(() -> evaluateMethod(method, times, current));
             double average;
             try {
-                logger.info("getting at {}", current);
                 List<Long> longs = submit.get(5 * TIME_LIMIT, TimeUnit.MILLISECONDS);
-                logger.info("got longs {}", longs);
                 average = longs.stream().mapToLong(Long::new).average().orElse(Double.MAX_VALUE);
             } catch (TimeoutException | ExecutionException | InterruptedException e) {
                 average = Double.MAX_VALUE;
-                logger.info("timeout {}", current);
                 results.addTime(current, null);
-                logger.error("e", e);
                 submit.cancel(true);
             }
-            logger.info("current {} -> avg {}", current, average);
 
             if (guessProvider.findNext(average)) {
                 break;
@@ -247,11 +236,11 @@ public class JavaExecutor extends FunctionExecutor {
     }
 
     private long evaluateMethodOnce(Method method, long n) throws InvocationTargetException, IllegalAccessException {
-        // TODO try use timeMethod
         long time = System.currentTimeMillis();
         method.invoke(null, getInput(n));
         long timeSpent = System.currentTimeMillis() - time;
-        logger.info("Time spent for {}: {}", n, timeSpent);
+        if (printprogress)
+            logger.info("Sisendi suurusega {} kulus aega: {}", n, timeSpent);
         results.addTime(n, timeSpent);
         return timeSpent;
     }

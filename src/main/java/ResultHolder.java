@@ -38,8 +38,9 @@ public class ResultHolder {
     public void printResults() {
         TreeMap<Long, Long> average = average();
         NavigableSet<Long> keySet = average.navigableKeySet();
+        logger.info("Sisendi suurus, Kulunud aeg");
         for (Long key : keySet) {
-            System.out.printf("%d , %d%n", key, average.get(key));
+            logger.info("{} , {}", key, average.get(key));
         }
     }
 
@@ -80,12 +81,14 @@ public class ResultHolder {
             y[i] = entry.getValue();
             i++;
         }
-        return CurveFit.findFunction(x, y);
+        String function = ComplexityFinder.findFunction(x, y);
+        if (function.isEmpty()) logger.warn("Liiga vähe andmeid, et keerukust leida, andmemaht: {}", results.size());
+        return "Comment :=>> Ajaline keerukus: O(" + function + ")";
     }
 
     public void getFunctionWithPython() {
         if (results.size() < 10) {
-            logger.warn("Not enough results to attempt finding function, size: {}", results.size());
+            logger.warn("Liiga vähe andmeid, et keerukust leida, andmemaht: {}", results.size());
             return;
         }
         Path path = Paths.get("python", "find_complexity.py");

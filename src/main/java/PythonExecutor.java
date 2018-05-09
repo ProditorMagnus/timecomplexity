@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 public class PythonExecutor extends FunctionExecutor {
     private static final Logger logger = LoggerFactory.getLogger(PythonExecutor.class);
     private long TIME_LIMIT;
+    private boolean printProgress = Config.valueAsLong("output.printprogress", 0L) == 1;
 
     public PythonExecutor(Path source) {
         super(source);
@@ -33,13 +34,13 @@ public class PythonExecutor extends FunctionExecutor {
     @Override
     public ResultHolder start() {
         TIME_LIMIT = Config.valueAsLong("function.goal.time", 1000L);
-        switch (Config.value("mode")) {
+        switch (Config.valueAsString("mode", "auto")) {
             case "auto":
                 Long maxN = Config.valueAsLong("function.n.max", (long) Integer.MAX_VALUE);
                 Long minN = Config.valueAsLong("function.n.min", 0L);
                 Long pointCount = Config.valueAsLong("result.point.count", 100L);
-                String pythonPath = Config.value("loc.source.python");
-                String sourceFile = Config.value("loc.source.file").replaceFirst("\\.py$", "");
+                String pythonPath = Config.valueAsString("source.python", ".");
+                String sourceFile = Config.value("source.file").replaceFirst("\\.py$", "");
                 try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(pythonPath, "python_runner.py"), Charset.forName("utf8"), StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
                     String runnerBase = "import %s as source%n" +
                             "import datagen%n" +
@@ -62,7 +63,7 @@ public class PythonExecutor extends FunctionExecutor {
                 } else {
                     limit = findMaxArgument(repeats, minN, maxN);
                 }
-                logger.info("Limit {}", limit);
+                logger.info("Suurim kasutatav sisendi suurus: {}", limit);
                 fillPoints(limit, Math.toIntExact(pointCount));
                 break;
             case "manual":
@@ -74,7 +75,7 @@ public class PythonExecutor extends FunctionExecutor {
     }
 
     private long findMaxArgument(int repeats, Long minN, Long maxN) {
-        String pythonPath = Config.value("loc.source.python");
+        String pythonPath = Config.valueAsString("source.python", ".");
         GuessProvider guessProvider = new GuessProvider(minN, maxN);
         while (true) {
             long current = guessProvider.getCurrent();
@@ -92,11 +93,10 @@ public class PythonExecutor extends FunctionExecutor {
     }
 
     private void fillPoints(long limit, int points) {
-        String pythonPath = Config.value("loc.source.python");
+        String pythonPath = Config.valueAsString("source.python", ".");
         long increment = limit / points;
         if (limit <= points) increment = 1;
         for (long i = 0; i < limit; i += increment) {
-            logger.info("fillPoints {}", i);
             runPythonFunction(pythonPath, i);
         }
     }
@@ -115,12 +115,13 @@ public class PythonExecutor extends FunctionExecutor {
             stdout.close();
             stdoutStreamReader.close();
             stdoutReader.close();
-            logger.info("Program wrote {}", functionOutput);
             long pythonTime = Math.round(Double.parseDouble(functionOutput.get(functionOutput.size() - 1)));
             long endTime = System.currentTimeMillis();
             long timeTaken = endTime - time;
-            logger.info("Time taken: {}", timeTaken);
-            logger.info("Time taken as reported by python: {}", pythonTime);
+            if (printProgress) {
+                logger.info("Sisendi suurusega {} kulus Java vaatepunktist aega: {}", current, timeTaken);
+                logger.info("Sisendi suurusega {} kulus Pythoni vaatepunktist aega: {}", current, pythonTime);
+            }
             results.addTime(current, pythonTime);
             return pythonTime;
         } catch (IOException e) {
