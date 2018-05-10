@@ -9,7 +9,8 @@ public class Main {
         if (fileName.endsWith(".java")) {
             executor = new JavaExecutor(Paths.get(Config.valueAsString("source.java", "."), fileName));
         } else {
-            executor = new PythonExecutor(Paths.get(Config.valueAsString("source.python", "."), fileName));
+            String pythonPath = Config.valueAsString("source.python", ".");
+            executor = new PythonExecutor(Paths.get(pythonPath, fileName), pythonPath);
         }
         ResultHolder results = executor.start();
         if (Config.valueAsLong("output.printtimes", 1L) != 0)

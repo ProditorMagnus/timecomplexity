@@ -78,7 +78,7 @@ public class ComplexityFinder {
         if (polyCoeff[2] > 1E-15 && polyCoeff[3] < 1E-15) {
             return "n^2";
         }
-        if (polyCoeff[3] > 1E-20) {
+        if (polyCoeff[3] > 1E-15) {
             return "n^3";
         }
         return "n^?";

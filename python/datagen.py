@@ -1,2 +1,2 @@
-def getInput(n: int):
+def getInput(n: int) -> object:
     return n

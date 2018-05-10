@@ -8,7 +8,7 @@ public class GuessProvider {
     private long high;
     private long current;
     private Set<Long> attemptedValues;
-    private final double PRECISION;
+    private final double TIME_OFFSET;
     private final long TIME_LIMIT;
 
     public GuessProvider(long low, long high) {
@@ -19,7 +19,7 @@ public class GuessProvider {
         this.found_windows = false;
         this.attemptedValues = new HashSet<>();
         TIME_LIMIT = Config.valueAsLong("function.goal.time", 1000L);
-        PRECISION = Config.valueAsDouble("function.goal.offset", 0.75);
+        TIME_OFFSET = Config.valueAsDouble("function.goal.offset", 0.25);
     }
 
     public long getCurrent() {
@@ -27,7 +27,7 @@ public class GuessProvider {
     }
 
     public boolean findNext(double average) {
-        if (average < TIME_LIMIT - TIME_LIMIT * PRECISION) {
+        if (average < TIME_LIMIT - TIME_LIMIT * TIME_OFFSET) {
             low = current;
             if (!found_windows) {
                 current *= 2;
@@ -35,7 +35,7 @@ public class GuessProvider {
             } else {
                 current = (low + high) / 2;
             }
-        } else if (average > TIME_LIMIT + TIME_LIMIT * PRECISION) {
+        } else if (average > TIME_LIMIT + TIME_LIMIT * TIME_OFFSET) {
             high = current;
             found_windows = true;
             current = (low + high) / 2;

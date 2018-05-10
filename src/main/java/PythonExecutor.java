@@ -16,10 +16,11 @@ public class PythonExecutor extends FunctionExecutor {
     private static final Logger logger = LoggerFactory.getLogger(PythonExecutor.class);
     private long TIME_LIMIT;
     private boolean printProgress = Config.valueAsLong("output.printprogress", 0L) == 1;
+    private final String pythonPath;
 
-    public PythonExecutor(Path source) {
+    public PythonExecutor(Path source, String pythonPath) {
         super(source);
-
+        this.pythonPath = pythonPath;
     }
 
     //https://stackoverflow.com/a/1574857/3667389
@@ -38,15 +39,17 @@ public class PythonExecutor extends FunctionExecutor {
             case "auto":
                 Long maxN = Config.valueAsLong("function.n.max", (long) Integer.MAX_VALUE);
                 Long minN = Config.valueAsLong("function.n.min", 0L);
-                Long pointCount = Config.valueAsLong("result.point.count", 100L);
-                String pythonPath = Config.valueAsString("source.python", ".");
+                Long pointCount = Config.valueAsLong("point.count", 100L);
                 String sourceFile = Config.value("source.file").replaceFirst("\\.py$", "");
                 try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(pythonPath, "python_runner.py"), Charset.forName("utf8"), StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
                     String runnerBase = "import %s as source%n" +
-                            "import datagen%n" +
                             "import time%n" +
                             "import sys%n" +
-                            "input_value = datagen.getInput(int(sys.argv[1]))%n" +
+                            "try:%n" +
+                            "    import datagen%n" +
+                            "    input_value = datagen.getInput(int(sys.argv[1]))%n" +
+                            "except ImportError:%n" +
+                            "    input_value = int(sys.argv[1])%n" +
                             "start_time = (time.time())%n" +
                             "source.%s(input_value)%n" +
                             "end_time = (time.time())%n" +
@@ -58,7 +61,7 @@ public class PythonExecutor extends FunctionExecutor {
                 }
                 int repeats = 2;
                 long limit;
-                if (maxN - minN < pointCount || Config.valueAsLong("function.n.point_only", 0L) != 0) {
+                if (maxN - minN < pointCount || Config.valueAsLong("point.only", 0L) != 0) {
                     limit = maxN;
                 } else {
                     limit = findMaxArgument(repeats, minN, maxN);
@@ -75,13 +78,12 @@ public class PythonExecutor extends FunctionExecutor {
     }
 
     private long findMaxArgument(int repeats, Long minN, Long maxN) {
-        String pythonPath = Config.valueAsString("source.python", ".");
         GuessProvider guessProvider = new GuessProvider(minN, maxN);
         while (true) {
             long current = guessProvider.getCurrent();
             List<Long> currentTimes = new ArrayList<>();
             for (int i = 0; i < repeats; i++) {
-                long time = runPythonFunction(pythonPath, current);
+                long time = runPythonFunction(current);
                 currentTimes.add(time);
             }
             double average = currentTimes.stream().reduce(0L, (aLong, aLong2) -> aLong + aLong2) / currentTimes.size();
@@ -93,15 +95,14 @@ public class PythonExecutor extends FunctionExecutor {
     }
 
     private void fillPoints(long limit, int points) {
-        String pythonPath = Config.valueAsString("source.python", ".");
         long increment = limit / points;
         if (limit <= points) increment = 1;
         for (long i = 0; i < limit; i += increment) {
-            runPythonFunction(pythonPath, i);
+            runPythonFunction(i);
         }
     }
 
-    private long runPythonFunction(String pythonPath, Long current) {
+    private long runPythonFunction(Long current) {
         ProcessBuilder pb = new ProcessBuilder("python3", Paths.get(pythonPath, "python_runner.py").toAbsolutePath().toString(), current.toString());
         pb.redirectErrorStream(true);
         try {
@@ -143,7 +144,7 @@ public class PythonExecutor extends FunctionExecutor {
 
 
     private boolean invokeManual(String testCase) {
-        String testLocation = Config.value("loc.tests");
+        String testLocation = Config.value("source.tests");
         if (!Files.exists(Paths.get(testLocation, String.format("meta%s.txt", testCase)))) {
             return false;
         }

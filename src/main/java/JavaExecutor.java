@@ -22,7 +22,7 @@ public class JavaExecutor extends FunctionExecutor {
     private Class<?> target;
     private Function<Long, Object> inputProvider;
     private long TIME_LIMIT;
-    private boolean printprogress = Config.valueAsLong("output.printprogress", 0L) == 1;
+    private static boolean printprogress = Config.valueAsLong("output.printprogress", 0L) == 1;
 
     public JavaExecutor(Path source) {
         super(source);
@@ -33,6 +33,8 @@ public class JavaExecutor extends FunctionExecutor {
         // https://stackoverflow.com/a/21544850/3667389
         DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        if (compiler == null)
+            throw new RuntimeException("Java kompilaatorit ei leitud. Programm tuleb käivitada JDK alamkaustas jre/bin/java väljakutsega.");
         try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics, null, null)) {
 
             List<String> optionList = new ArrayList<>();
@@ -81,11 +83,13 @@ public class JavaExecutor extends FunctionExecutor {
 
         TIME_LIMIT = Config.valueAsLong("function.goal.time", 1000L);
 
-        if (Objects.equals(Config.valueAsString("function.parameter", "long"), "long")) {
-            inputProvider = aLong -> aLong;
-        } else {
-            try {
-                final Method inputClass = new JavaExecutor(Paths.get(Config.valueAsString("source.java", "."), "DataGen.java")).loadClass().getMethod("getInput", long.class);
+        inputProvider = aLong -> aLong;
+        try {
+            Path sourcePath = Paths.get(Config.valueAsString("source.java", "."), "DataGen.java");
+            if (Files.exists(sourcePath)) {
+                Class<?> loadedClass = new JavaExecutor(sourcePath).loadClass();
+                if (loadedClass == null) throw new NoSuchMethodException();
+                final Method inputClass = loadedClass.getMethod("getInput", long.class);
                 inputProvider = aLong -> {
                     try {
                         return inputClass.invoke(null, aLong);
@@ -93,9 +97,11 @@ public class JavaExecutor extends FunctionExecutor {
                         throw new RuntimeException("Sisendi genereerimine ebaõnnestus", e);
                     }
                 };
-            } catch (NoSuchMethodException e) {
-                throw new RuntimeException("Sisendi genereerimise meetodit getInput ei leitud");
+            } else {
+                logger.info("Sisendi genereerimise faili DataGen.java ei õnnestunud kompileerida, seega sisendi suurust kasutatakse sisendina");
             }
+        } catch (NoSuchMethodException e) {
+            logger.info("Sisendi genereerimise meetodit getInput ei leitud failist DataGen.java, seega sisendi suurust kasutatakse sisendina");
         }
 
         try {
@@ -111,20 +117,18 @@ public class JavaExecutor extends FunctionExecutor {
             if (!Modifier.isPublic(method.getModifiers()) || !Modifier.isStatic(method.getModifiers())) {
                 continue;
             }
-            if (Config.valueAsString("function.parameter", null) == null) {
-                if (Objects.equals(method.getName(), Config.value("function.name"))) {
-                    evaluateMethod(method);
-                    return;
-                }
-            } else {
-                if (Arrays.equals(method.getParameterTypes(),
-                        parseParameters(Config.value("function.parameter")))) {
-                    evaluateMethod(method);
-                    return;
-                }
+            String functionName = Config.value("function.name");
+            if (functionName == null || functionName.isEmpty()) {
+                logger.error("Parameeter function.name peab leiduma failis config.properties");
+                System.exit(1);
             }
+            if (!Objects.equals(method.getName(), functionName)) {
+                continue;
+            }
+            evaluateMethod(method);
+            return;
         }
-        logger.error("Sobiva nime või signatuuriga avalikku staatilist meetodit ei leitud.");
+        logger.error("Sobiva nime ning signatuuriga avalikku staatilist meetodit ei leitud.");
     }
 
     private void evaluateMethod(Method method) throws IllegalAccessException, InvocationTargetException, ClassNotFoundException, IOException, InstantiationException {
@@ -132,10 +136,10 @@ public class JavaExecutor extends FunctionExecutor {
             case "auto":
                 Long maxN = Config.valueAsLong("function.n.max", (long) Integer.MAX_VALUE);
                 Long minN = Config.valueAsLong("function.n.min", 0L);
-                Long pointCount = Config.valueAsLong("result.point.count", 100L);
+                Long pointCount = Config.valueAsLong("point.count", 100L);
                 int repeats = 2;
                 long limit;
-                if (maxN - minN < pointCount || Config.valueAsLong("function.n.point_only", 0L) != 0) {
+                if (maxN - minN < pointCount || Config.valueAsLong("point.only", 0L) != 0) {
                     limit = maxN;
                 } else {
                     limit = findMaxArgument(method, repeats, minN, maxN);
@@ -156,7 +160,7 @@ public class JavaExecutor extends FunctionExecutor {
     }
 
     private boolean invokeManual(Method method, String testCase) throws InvocationTargetException, IllegalAccessException, ClassNotFoundException, IOException, InstantiationException {
-        String testLocation = Config.value("loc.tests");
+        String testLocation = Config.value("source.tests");
         if (!Files.exists(Paths.get(testLocation, String.format("meta%s.txt", testCase)))) {
             return false;
         }
@@ -213,10 +217,20 @@ public class JavaExecutor extends FunctionExecutor {
             try {
                 List<Long> longs = submit.get(5 * TIME_LIMIT, TimeUnit.MILLISECONDS);
                 average = longs.stream().mapToLong(Long::new).average().orElse(Double.MAX_VALUE);
-            } catch (TimeoutException | ExecutionException | InterruptedException e) {
+            } catch (TimeoutException | InterruptedException e) {
                 average = Double.MAX_VALUE;
                 results.addTime(current, null);
                 submit.cancel(true);
+                logger.error("", e);
+            } catch (ExecutionException e) {
+                logger.error("Funktsiooni käivitamine ebaõnnestus: {}", e.getMessage());
+                Class<?>[] parameterTypes = method.getParameterTypes();
+                if (parameterTypes.length > 0)
+                    logger.error("Oodati parameetrit {}", parameterTypes[0].getName());
+                else logger.error("Funktsioon peaks võtma ühe parameetri");
+                logger.error("DataGen.java getInput andis tüübi {}", inputProvider.apply(0L).getClass());
+                System.exit(1);
+                average = Double.MAX_VALUE; // for compiler
             }
 
             if (guessProvider.findNext(average)) {
