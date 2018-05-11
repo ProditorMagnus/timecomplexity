@@ -6,7 +6,7 @@
 
     <groupId>ee.ut.ravana</groupId>
     <artifactId>time-complexity</artifactId>
-    <version>0.1</version>
+    <version>1.0</version>
     <build>
         <plugins>
             <plugin>
