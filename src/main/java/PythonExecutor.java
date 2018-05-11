@@ -10,6 +10,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 public class PythonExecutor extends FunctionExecutor {
@@ -109,7 +110,7 @@ public class PythonExecutor extends FunctionExecutor {
             long time = System.currentTimeMillis();
             Process p = pb.start();
             InputStream stdout = p.getInputStream();
-            waitForProcess(p);
+            waitForProcess(p, current);
             InputStreamReader stdoutStreamReader = new InputStreamReader(stdout, Charset.forName("UTF-8"));
             BufferedReader stdoutReader = new BufferedReader(stdoutStreamReader);
             List<String> functionOutput = stdoutReader.lines().collect(Collectors.toList());
@@ -131,14 +132,18 @@ public class PythonExecutor extends FunctionExecutor {
         return -1;
     }
 
-    private void waitForProcess(Process p) {
+    private void waitForProcess(Process p, long i) {
         try {
-            if (!p.waitFor(5 * TIME_LIMIT, TimeUnit.MILLISECONDS)) {
-                throw new InterruptedException("Timed out");
+            if (!p.waitFor(10 * TIME_LIMIT, TimeUnit.MILLISECONDS)) {
+                throw new TimeoutException("Timed out");
             }
         } catch (InterruptedException e) {
             p.destroy();
             logger.error("Timed out", e);
+        } catch (TimeoutException e) {
+            p.destroy();
+            logger.error("Sisendi suurusega {} läheb liiga kaua aega", i);
+            System.exit(1);
         }
     }
 
@@ -164,7 +169,7 @@ public class PythonExecutor extends FunctionExecutor {
             inputStream.close();
             fileIS.close();
 
-            waitForProcess(p);
+            waitForProcess(p, input_size);
             InputStreamReader stdoutStreamReader = new InputStreamReader(stdout, Charset.forName("UTF-8"));
             BufferedReader stdoutReader = new BufferedReader(stdoutStreamReader);
             List<String> functionOutput = stdoutReader.lines().collect(Collectors.toList());

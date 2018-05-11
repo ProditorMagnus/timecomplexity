@@ -194,7 +194,7 @@ public class JavaExecutor extends FunctionExecutor {
             final long current_ = i;
             Future<List<Long>> submit = executor.submit(() -> evaluateMethod(method, 2, current_));
             try {
-                submit.get(5 * TIME_LIMIT, TimeUnit.MILLISECONDS);
+                submit.get(10 * TIME_LIMIT, TimeUnit.MILLISECONDS);
             } catch (TimeoutException | ExecutionException | InterruptedException e) {
                 submit.cancel(true);
                 if (e instanceof TimeoutException) {
@@ -221,7 +221,6 @@ public class JavaExecutor extends FunctionExecutor {
                 average = Double.MAX_VALUE;
                 results.addTime(current, null);
                 submit.cancel(true);
-                logger.error("", e);
             } catch (ExecutionException e) {
                 logger.error("Funktsiooni käivitamine ebaõnnestus: {}", e.getMessage());
                 Class<?>[] parameterTypes = method.getParameterTypes();
