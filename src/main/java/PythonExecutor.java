@@ -19,11 +19,22 @@ public class PythonExecutor extends FunctionExecutor {
     private boolean printProgress = Config.valueAsLong("output.printprogress", 0L) == 1;
     private final String pythonPath;
 
+
+    /**
+     * @param source     sisendfaili asukoht
+     * @param pythonPath kaust, milles .py failid on
+     */
     public PythonExecutor(Path source, String pythonPath) {
         super(source);
         this.pythonPath = pythonPath;
     }
 
+    /**
+     * Kopeerib sisendvoost loetud info väljundvoogu
+     *
+     * @param input  sisendvoog
+     * @param output väljundvoog
+     */
     //https://stackoverflow.com/a/1574857/3667389
     private static void copyStream(InputStream input, OutputStream output) throws IOException {
         byte[] buffer = new byte[4096];
@@ -33,6 +44,11 @@ public class PythonExecutor extends FunctionExecutor {
         }
     }
 
+    /**
+     * Genereerib faili python_runner.py, mis kutsub välja vaadeldavat funktsiooni
+     *
+     * @return kogutud andmed
+     */
     @Override
     public ResultHolder start() {
         TIME_LIMIT = Config.valueAsLong("function.goal.time", 1000L);
@@ -57,7 +73,7 @@ public class PythonExecutor extends FunctionExecutor {
                             "print(1000*(end_time-start_time))%n";
                     writer.write(String.format(runnerBase, sourceFile, Config.value("function.name")));
                 } catch (IOException e) {
-                    logger.error("IOE", e);
+                    logger.error("Faili probleem", e);
                     return results;
                 }
                 int repeats = 2;
@@ -78,6 +94,15 @@ public class PythonExecutor extends FunctionExecutor {
         return results;
     }
 
+    /**
+     * Kasutab topelkahendotsingut et leida, millise sisendi suurusega võtab meetodi käivitus seadetes määratud hulgal
+     * aega
+     *
+     * @param repeats mitu korda sama sisendi suuruse mõõtmisi teha
+     * @param minN    otsitava sisendi suuruse alumine piir
+     * @param maxN    otsitava sisendi suuruse ülemine piir
+     * @return sisendi suurus, mille korral käivitusaeg oli seadetes määratud piirides
+     */
     private long findMaxArgument(int repeats, Long minN, Long maxN) {
         GuessProvider guessProvider = new GuessProvider(minN, maxN);
         while (true) {
@@ -95,6 +120,12 @@ public class PythonExecutor extends FunctionExecutor {
         return guessProvider.getCurrent();
     }
 
+    /**
+     * Teeb täiendavaid mõõtmisi, et saada piisavas koguses ning ühtlasema jaotusega andmeid
+     *
+     * @param limit  suurim kasutatav sisendi väärtus
+     * @param points mitu mõõtmist sooritada
+     */
     private void fillPoints(long limit, int points) {
         long increment = limit / points;
         if (limit <= points) increment = 1;
@@ -103,6 +134,13 @@ public class PythonExecutor extends FunctionExecutor {
         }
     }
 
+    /**
+     * Käivitab genereeritud Pythoni faili uue protsessina
+     * See fail käivitab vaadeldavat funktsiooni ning mõõdab selle tööaega
+     *
+     * @param current sisendi suurus
+     * @return funktsiooni tööaeg
+     */
     private long runPythonFunction(Long current) {
         ProcessBuilder pb = new ProcessBuilder("python3", Paths.get(pythonPath, "python_runner.py").toAbsolutePath().toString(), current.toString());
         pb.redirectErrorStream(true);
@@ -132,6 +170,12 @@ public class PythonExecutor extends FunctionExecutor {
         return -1;
     }
 
+    /**
+     * Ootab, kuni protsess lõpetab töö
+     *
+     * @param p protsess
+     * @param i sisendi suurus
+     */
     private void waitForProcess(Process p, long i) {
         try {
             if (!p.waitFor(10 * TIME_LIMIT, TimeUnit.MILLISECONDS)) {
@@ -139,7 +183,7 @@ public class PythonExecutor extends FunctionExecutor {
             }
         } catch (InterruptedException e) {
             p.destroy();
-            logger.error("Timed out", e);
+            logger.error("Töö katkestati", e);
         } catch (TimeoutException e) {
             p.destroy();
             logger.error("Sisendi suurusega {} läheb liiga kaua aega", i);
@@ -148,6 +192,12 @@ public class PythonExecutor extends FunctionExecutor {
     }
 
 
+    /**
+     * Käivitab etteantud testkomplekti ühe testjuhu. Kirjutab väljundisse, kas meetod andis õige tulemuse
+     *
+     * @param testCase testjuhu järjekorranumber
+     * @return kas käivitamine õnnestus
+     */
     private boolean invokeManual(String testCase) {
         String testLocation = Config.value("source.tests");
         if (!Files.exists(Paths.get(testLocation, String.format("meta%s.txt", testCase)))) {
@@ -176,21 +226,19 @@ public class PythonExecutor extends FunctionExecutor {
             stdout.close();
             stdoutStreamReader.close();
             stdoutReader.close();
-            logger.info("Program wrote {}", functionOutput);
             List<String> expectedOutput = Files.readAllLines(Paths.get(testLocation, String.format("output%s.txt", testCase)));
 
             long endTime = System.currentTimeMillis();
             long timeTaken = endTime - time;
-            logger.info("Time taken: {}", timeTaken);
             results.addTime(input_size, timeTaken);
             if (functionOutput.equals(expectedOutput)) {
-                logger.info("function wrote correct value {}", functionOutput);
+                logger.info("Programm väljastas õige vastuse '{}'", functionOutput);
             } else {
-                logger.error("function wrote incorrect value {} expected {}", functionOutput, expectedOutput);
+                logger.error("Programm väljastas '{}', aga pidi väljastama '{}'", functionOutput, expectedOutput);
             }
 
         } catch (IOException e) {
-            logger.error("process error", e);
+            logger.error("Probleem käivitamisega", e);
         }
         return true;
     }

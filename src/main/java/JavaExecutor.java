@@ -24,11 +24,22 @@ public class JavaExecutor extends FunctionExecutor {
     private long TIME_LIMIT;
     private static boolean printprogress = Config.valueAsLong("output.printprogress", 0L) == 1;
 
+    /**
+     * Leiab ning salvestab failinime alusel klassi nime
+     *
+     * @param source sisendfaili asukoht
+     */
     public JavaExecutor(Path source) {
         super(source);
         className = source.getFileName().toString().replaceFirst("\\.java", "");
     }
 
+    /**
+     * Kompileerib faili ning tagastab selles leiduva klassi. Kompileeritavat faili otsitakse seadega source.java
+     * määratud kaustast
+     *
+     * @return kompileeritud klass
+     */
     private Class<?> loadClass() {
         // https://stackoverflow.com/a/21544850/3667389
         DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
@@ -40,7 +51,6 @@ public class JavaExecutor extends FunctionExecutor {
             List<String> optionList = new ArrayList<>();
             optionList.add("-classpath");
             optionList.add(System.getProperty("java.class.path"));
-//        optionList.add(System.getProperty("java.class.path") + ";dist/InlineCompiler.jar");
 
             Iterable<? extends JavaFileObject> compilationUnit
                     = fileManager.getJavaFileObjectsFromFiles(Collections.singletonList(source.toFile()));
@@ -52,10 +62,7 @@ public class JavaExecutor extends FunctionExecutor {
                     null,
                     compilationUnit);
             if (task.call()) {
-                // Create a new custom class loader, pointing to the directory that contains the compiled
-                // classes, this should point to the top of the package structure!
                 URLClassLoader classLoader = new URLClassLoader(new URL[]{new File(Config.valueAsString("source.java", ".")).toURI().toURL()});
-                // Load the class from the classloader by name....
                 return classLoader.loadClass(className);
             } else {
                 for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
@@ -72,6 +79,11 @@ public class JavaExecutor extends FunctionExecutor {
         return null;
     }
 
+    /**
+     * Valmistab ette sisendi genereerimise DataGen.java meetodi getInput abil
+     *
+     * @return kogutud andmed
+     */
     @Override
     public ResultHolder start() {
         target = loadClass();
@@ -112,6 +124,9 @@ public class JavaExecutor extends FunctionExecutor {
         return results;
     }
 
+    /**
+     * Otsib vaadeldavast klassist etteantud nimega meetodi. Kasutatakse esimest leitud sobiva nimega meetodit
+     */
     private void evaluate() throws InvocationTargetException, IllegalAccessException, ClassNotFoundException, IOException, InstantiationException {
         for (Method method : target.getDeclaredMethods()) {
             if (!Modifier.isPublic(method.getModifiers()) || !Modifier.isStatic(method.getModifiers())) {
@@ -131,7 +146,12 @@ public class JavaExecutor extends FunctionExecutor {
         logger.error("Sobiva nime ning signatuuriga avalikku staatilist meetodit ei leitud.");
     }
 
-    private void evaluateMethod(Method method) throws IllegalAccessException, InvocationTargetException, ClassNotFoundException, IOException, InstantiationException {
+    /**
+     * Vastavalt seadistusele kasutatakse etteantud testkomplekti või suurima sisendi suuruse leidmist
+     *
+     * @param method meetod, mida käivitada
+     */
+    private void evaluateMethod(Method method) throws IllegalAccessException, InvocationTargetException, IOException, InstantiationException {
         switch (Config.valueAsString("mode", "auto")) {
             case "auto":
                 Long maxN = Config.valueAsLong("function.n.max", (long) Integer.MAX_VALUE);
@@ -159,7 +179,14 @@ public class JavaExecutor extends FunctionExecutor {
         }
     }
 
-    private boolean invokeManual(Method method, String testCase) throws InvocationTargetException, IllegalAccessException, ClassNotFoundException, IOException, InstantiationException {
+    /**
+     * Käivitab etteantud testkomplekti ühe testjuhu. Kirjutab väljundisse, kas meetod andis õige tulemuse
+     *
+     * @param method   vaadeldav meetod
+     * @param testCase testjuhu järjekorranumber
+     * @return kas käivitamine õnnestus
+     */
+    private boolean invokeManual(Method method, String testCase) throws InvocationTargetException, IllegalAccessException, IOException, InstantiationException {
         String testLocation = Config.value("source.tests");
         if (!Files.exists(Paths.get(testLocation, String.format("meta%s.txt", testCase)))) {
             return false;
@@ -186,6 +213,13 @@ public class JavaExecutor extends FunctionExecutor {
         return true;
     }
 
+    /**
+     * Teeb täiendavaid mõõtmisi, et saada piisavas koguses ning ühtlasema jaotusega andmeid
+     *
+     * @param method vaadeldav meetod
+     * @param limit  suurim kasutatav sisendi väärtus
+     * @param points mitu mõõtmist sooritada
+     */
     private void fillPoints(Method method, long limit, int points) {
         ExecutorService executor = Executors.newFixedThreadPool(1);
         long increment = limit / points;
@@ -206,8 +240,17 @@ public class JavaExecutor extends FunctionExecutor {
         executor.shutdownNow();
     }
 
-    private long findMaxArgument(final Method method, final int times, final long minN, final long maxN) throws InvocationTargetException, IllegalAccessException {
-
+    /**
+     * Kasutab topelkahendotsingut et leida, millise sisendi suurusega võtab meetodi käivitus seadetes määratud hulgal
+     * aega
+     *
+     * @param method vaadeldav meetod
+     * @param times  mitu korda sama sisendi suuruse mõõtmisi teha
+     * @param minN   otsitava sisendi suuruse alumine piir
+     * @param maxN   otsitava sisendi suuruse ülemine piir
+     * @return sisendi suurus, mille korral käivitusaeg oli seadetes määratud piirides
+     */
+    private long findMaxArgument(final Method method, final int times, final long minN, final long maxN) {
         GuessProvider guessProvider = new GuessProvider(minN, maxN);
         ExecutorService executor = Executors.newFixedThreadPool(1);
         while (true) {
@@ -240,6 +283,14 @@ public class JavaExecutor extends FunctionExecutor {
         return guessProvider.getCurrent();
     }
 
+    /**
+     * Käivitab etteantud meetodit küsitud arv kordi
+     *
+     * @param method vaadeldav meetod
+     * @param times  mõõtmiste arv
+     * @param n      sisendi suurus
+     * @return meetodi tööaegade järjend
+     */
     private List<Long> evaluateMethod(Method method, int times, long n) throws InvocationTargetException, IllegalAccessException {
         List<Long> results = new ArrayList<>();
         for (int i = 0; i < times; i++) {
@@ -248,6 +299,13 @@ public class JavaExecutor extends FunctionExecutor {
         return results;
     }
 
+    /**
+     * Käivitab meetodit etteantud suuruse sisendiga ning mõõdab selle tööaega
+     *
+     * @param method vaadeldav meetod
+     * @param n      sisendi suurus
+     * @return meetodi tööaeg
+     */
     private long evaluateMethodOnce(Method method, long n) throws InvocationTargetException, IllegalAccessException {
         long time = System.currentTimeMillis();
         method.invoke(null, getInput(n));
@@ -258,7 +316,17 @@ public class JavaExecutor extends FunctionExecutor {
         return timeSpent;
     }
 
-    private Object timeMethod(Method method, long size) throws InvocationTargetException, IllegalAccessException, InstantiationException {
+    /**
+     * Käivitab meetodit etteantud suuruse sisendiga ning mõõdab selle tööaega
+     * Erineb meetodist evaluateMethodOnce selle poolest, et tööaega ei tagastata, see ainult salvestatakse
+     * Selle asemel tagastatakse käivitatud meetodi tagastusväärtus. Edasiarenduses saaks selle kaudu lisada väljundi
+     * kontrollimist
+     *
+     * @param method vaadeldav meetod
+     * @param size   sisendi suurus
+     * @return meetodi tagastusväärtus
+     */
+    private Object timeMethod(Method method, long size) throws InvocationTargetException, IllegalAccessException {
         List<Object> args = new ArrayList<>();
         for (Class<?> ignored : method.getParameterTypes()) {
             args.add(null);
@@ -270,44 +338,15 @@ public class JavaExecutor extends FunctionExecutor {
         return output;
     }
 
+    /**
+     * Kasutab faili DataGen.java meetodit getInput, et koostada funktsioonile sisendväärtus.
+     * Kui sellist faili või meetodit ei leidu, tagastatakse sisendi suurus
+     *
+     * @param n sisendi suurus
+     * @return sisendi väärtus
+     */
     private Object getInput(long n) {
         return inputProvider.apply(n);
-    }
-
-    public static Class<?>[] parseParameters(String s) throws ClassNotFoundException {
-        String[] split = s.split(",");
-        Class<?>[] parameters = new Class[split.length];
-        for (int i = 0; i < split.length; i++) {
-            switch (split[i]) {
-                case "boolean":
-                    parameters[i] = boolean.class;
-                    break;
-                case "byte":
-                    parameters[i] = byte.class;
-                    break;
-                case "short":
-                    parameters[i] = short.class;
-                    break;
-                case "int":
-                    parameters[i] = int.class;
-                    break;
-                case "long":
-                    parameters[i] = long.class;
-                    break;
-                case "float":
-                    parameters[i] = float.class;
-                    break;
-                case "double":
-                    parameters[i] = double.class;
-                    break;
-                case "char":
-                    parameters[i] = char.class;
-                    break;
-                default:
-                    parameters[i] = Class.forName(split[i]);
-            }
-        }
-        return parameters;
     }
 
 

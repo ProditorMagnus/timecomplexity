@@ -11,6 +11,12 @@ public class GuessProvider {
     private final double TIME_OFFSET;
     private final long TIME_LIMIT;
 
+    /**
+     * Koostab topeltkahendotsingu algseisu
+     *
+     * @param low  alumine piir
+     * @param high ülemine piir
+     */
     public GuessProvider(long low, long high) {
         this.maxN = high;
         this.low = low;
@@ -22,10 +28,21 @@ public class GuessProvider {
         TIME_OFFSET = Config.valueAsDouble("function.goal.offset", 0.25);
     }
 
+    /**
+     * Tagastab praegu kasutatava sisendi suuruse
+     *
+     * @return praegune sisendi suurus
+     */
     public long getCurrent() {
         return current;
     }
 
+    /**
+     * Viib läbi ühe topeltkahendotsingu sammu. Tagastab true, kui töö on lõppenud
+     *
+     * @param average funktsiooni tööaeg millisekundites
+     * @return kas otsitav sisendi suurus on leitud
+     */
     public boolean findNext(double average) {
         if (average < TIME_LIMIT - TIME_LIMIT * TIME_OFFSET) {
             low = current;

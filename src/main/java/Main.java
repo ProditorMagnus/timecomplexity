@@ -1,6 +1,9 @@
 import java.nio.file.Paths;
 
 public class Main {
+    /**
+     * Alustab programmi tööd
+     */
     public static void main(String[] args) {
         String fileName = Config.value("source.file");
         if (fileName == null || fileName.isEmpty())
@@ -15,7 +18,6 @@ public class Main {
         ResultHolder results = executor.start();
         if (Config.valueAsLong("output.printtimes", 1L) != 0)
             results.printResults();
-//        results.getFunctionWithPython();
         System.out.println(results.getFunction());
         System.exit(0);
     }

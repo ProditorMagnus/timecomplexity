@@ -4,6 +4,11 @@ public abstract class FunctionExecutor {
     protected final ResultHolder results = new ResultHolder();
     protected final Path source;
 
+    /**
+     * Salvestab sisendfaili teekonna klassivälja
+     *
+     * @param source sisendfaili asukoht
+     */
     public FunctionExecutor(Path source) {
         if (source == null || source.getFileName() == null) {
             throw new IllegalArgumentException("Source file is missing");
@@ -11,9 +16,10 @@ public abstract class FunctionExecutor {
         this.source = source;
     }
 
-    public ResultHolder getResults() {
-        return results;
-    }
-
+    /**
+     * Leiab funktsiooni ajalise keerukuse määramise jaoks vajalikud andmed
+     *
+     * @return kogutud andmed
+     */
     public abstract ResultHolder start();
 }
