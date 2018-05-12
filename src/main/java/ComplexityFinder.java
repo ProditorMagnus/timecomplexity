@@ -62,7 +62,7 @@ public class ComplexityFinder {
         }
         // 2**100 is sufficiently large to show that it could not be exponential
         if (expSum < polySum && expSum * 10 < nlogSum && x[x.length - 1] < 100) {
-            return "2**n";
+            return "2^n";
         }
         if (nlogSum < polySum) {
             return "n*log(n)";
