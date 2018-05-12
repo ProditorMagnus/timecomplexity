@@ -1,16 +1,14 @@
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.nio.charset.Charset;
-import java.util.List;
-import java.util.stream.Collectors;
-
 public class Example_4 {
-    public static void main(String[] args) {
-        BufferedReader in = new BufferedReader(new InputStreamReader(System.in, Charset.forName("UTF-8")));
-        List<String> lines = in.lines().collect(Collectors.toList());
-        if (lines.contains("a=1 b=5"))
-            System.out.println("1->3->5");
-        else
-            System.out.println("ei leidu");
+    public static void start(long n) {
+        long c = 0;
+        for (long j = 1; j < n; j *= 2) {
+            c++;
+            // This is too fast to have any measurable time taken without sleeping
+            try {
+                Thread.sleep(2);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 }

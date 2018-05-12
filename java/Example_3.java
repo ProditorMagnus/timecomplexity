@@ -1,12 +1,10 @@
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.List;
-
 public class Example_3 {
-    public static String start(String fileName) throws IOException {
-        List<String> strings = Files.readAllLines(Paths.get(fileName));
-        System.out.println(strings);
-        return "1->3->5";
+    public static void start(long n) {
+        long c = 0;
+        for (int i = 0; i < n; i++) {
+            for (int j = 1; j < n; j *= 2) {
+                c++;
+            }
+        }
     }
 }

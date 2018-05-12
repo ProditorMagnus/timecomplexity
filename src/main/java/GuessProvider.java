@@ -69,6 +69,11 @@ public class GuessProvider {
         if (attemptedValues.contains(current)) {
             found_windows = true;
         }
+        // Detect overflow
+        if (current < 0) {
+            current = Long.MAX_VALUE;
+            found_windows = true;
+        }
         return found_windows;
     }
 }

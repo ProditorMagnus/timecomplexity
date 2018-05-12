@@ -1,8 +1,8 @@
 public class Example_5 {
-    public static void start(long[] array) {
+    public static void start(long n) {
         long c = 0;
-        for (long l : array) {
-            c += l;
+        for (long j = 1; j < Math.pow(2, n); j++) {
+            c++;
         }
     }
 }

@@ -1,5 +1,5 @@
 def start(n):
-    if n < 1:
-        return
+    c = 0
     for i in range(n):
-        start(n - 1)
+        for j in range(n):
+            c += 1
