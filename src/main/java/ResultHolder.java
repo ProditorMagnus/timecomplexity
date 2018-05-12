@@ -50,7 +50,8 @@ public class ResultHolder {
 
     /**
      * Kutsub välja ajalise keerukuse leidmise meetodi klassist ComplexityFinder
-     * @return Moodle'i formaadis kommentaari, mis sisaldab leitud ajalist keerukust
+     *
+     * @return Moodle'i formaadis kommentaar, mis sisaldab leitud ajalist keerukust
      */
     public String getFunction() {
         double[] x = new double[results.size()];
