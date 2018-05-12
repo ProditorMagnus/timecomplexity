@@ -24,7 +24,7 @@ public class GuessProvider {
         this.current = low;
         this.found_windows = false;
         this.attemptedValues = new HashSet<>();
-        TIME_LIMIT = Config.valueAsLong("function.goal.time", 1000L);
+        TIME_LIMIT = Config.valueAsLong("function.goal.time", 2000L);
         TIME_OFFSET = Config.valueAsDouble("function.goal.offset", 0.25);
     }
 

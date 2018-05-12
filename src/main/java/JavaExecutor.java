@@ -93,7 +93,7 @@ public class JavaExecutor extends FunctionExecutor {
             System.exit(1);
         }
 
-        TIME_LIMIT = Config.valueAsLong("function.goal.time", 1000L);
+        TIME_LIMIT = Config.valueAsLong("function.goal.time", 2000L);
 
         inputProvider = aLong -> aLong;
         try {

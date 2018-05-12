@@ -51,7 +51,7 @@ public class PythonExecutor extends FunctionExecutor {
      */
     @Override
     public ResultHolder start() {
-        TIME_LIMIT = Config.valueAsLong("function.goal.time", 1000L);
+        TIME_LIMIT = Config.valueAsLong("function.goal.time", 2000L);
         switch (Config.valueAsString("mode", "auto")) {
             case "auto":
                 Long maxN = Config.valueAsLong("function.n.max", (long) Integer.MAX_VALUE);
