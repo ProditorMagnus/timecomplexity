@@ -6,6 +6,7 @@ import java.util.Set;
  */
 public class GuessProvider {
     private boolean found_windows;
+    private boolean finished = false;
     private long maxN;
     private long low;
     private long high;
@@ -63,20 +64,20 @@ public class GuessProvider {
                 current--;
             }
         } else {
-            found_windows = true;
+            finished = true;
         }
         if (current > maxN) {
             current = maxN;
-            found_windows = true;
+            finished = true;
         }
         if (attemptedValues.contains(current)) {
-            found_windows = true;
+            finished = true;
         }
         // Detect overflow
         if (current < 0) {
             current = Long.MAX_VALUE;
-            found_windows = true;
+            finished = true;
         }
-        return found_windows;
+        return finished;
     }
 }
