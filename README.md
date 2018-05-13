@@ -19,9 +19,11 @@ mvn package
 
 Vajalikud vahendid vastavalt vaadeldava funktsiooni keelele: Java 8 JDK või Java 8 JRE ja Python 3
 
-Kompileerimise tulemusena on kaustas target fail time-complexity-1.0.jar. Käivitamiseks peab see olemas samas kaustas, kus config.properties.
+Kompileerimise tulemusena on kaustas target fail `time-complexity-1.0.jar`. Käivitamiseks peab see olemas samas kaustas, kus fail `config.properties`.
 
 ```
 cp target/time-complexity-1.0.jar .
 java -jar time-complexity-1.0.jar
 ```
+
+Kui vaikimisi kasutatav `java` käsk viitab JRE asukohale, siis on Java funktsiooni käivitamiseks vajalik anda käsk `java` täieliku teega JDK kaustas asuva `java` failini, näiteks `"C:\Program Files\Java\jdk1.8.0_121\jre\bin\java" -jar time-complexity.jar`
