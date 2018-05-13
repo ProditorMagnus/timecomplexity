@@ -1,6 +1,9 @@
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Klass GuessProvider sisaldab topelkahendotsingu loogikat.
+ */
 public class GuessProvider {
     private boolean found_windows;
     private long maxN;

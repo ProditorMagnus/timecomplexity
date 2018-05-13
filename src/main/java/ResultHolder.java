@@ -3,6 +3,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
+/**
+ * Klass ResultHolder on kasutusel käivituse käigus saadud andmete kogumiseks ning esitamiseks.
+ */
 public class ResultHolder {
     private static final Logger logger = LoggerFactory.getLogger(ResultHolder.class);
     private Map<Long, List<Long>> results = new HashMap<>();

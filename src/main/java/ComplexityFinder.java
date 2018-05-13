@@ -10,6 +10,10 @@ import java.util.List;
 import java.util.function.DoubleUnaryOperator;
 import java.util.stream.Collectors;
 
+/**
+ * Klassi ComplexityFinder eesmärk on leida mõõdetud sisendisuuruste ning tööaegade alusel keerukusfunktsioon.
+ * Selleks kasutatakse polünomiaalset regressiooni ning erinevaid teisendusi sisendandmetel.
+ */
 public class ComplexityFinder {
     private static final Logger logger = LoggerFactory.getLogger(ComplexityFinder.class);
     private static boolean verbose = Config.valueAsLong("output.predictions", 0L) != 0;
@@ -67,13 +71,13 @@ public class ComplexityFinder {
         if (nlogSum < polySum) {
             return "n*log(n)";
         }
-        if (polyCoeff[2] < 1E-15 && polyCoeff[3] < 1E-15) {
+        if (polyCoeff[2] < 1E-10 && polyCoeff[3] < 1E-10) {
             return "n";
         }
-        if (polyCoeff[2] > 1E-15 && polyCoeff[3] < 1E-15) {
+        if (polyCoeff[2] > 1E-10 && polyCoeff[3] < 1E-10) {
             return "n^2";
         }
-        if (polyCoeff[3] > 1E-15) {
+        if (polyCoeff[3] > 1E-10) {
             return "n^3";
         }
         return "n^?";

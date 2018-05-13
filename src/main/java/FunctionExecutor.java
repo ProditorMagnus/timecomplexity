@@ -1,5 +1,10 @@
 import java.nio.file.Path;
 
+/**
+ * Klass FunctionExecutor on abstraktne klass, mida laiendavad klassid JavaExecutor ning PythonExecutor.
+ * Nende ühine funktsionaalsus on funktsiooni käivitamine ning nende tööaegade alusel
+ * tulemuste struktuuri ResultHolder koostamine.
+ */
 public abstract class FunctionExecutor {
     protected final ResultHolder results = new ResultHolder();
     protected final Path source;

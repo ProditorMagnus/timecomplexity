@@ -1,5 +1,8 @@
 import java.nio.file.Paths;
 
+/**
+ * Peaklass, mida jar-faili käivitamisel esimesena kasutatakse.
+ */
 public class Main {
     /**
      * Alustab programmi tööd

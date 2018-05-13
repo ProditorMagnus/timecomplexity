@@ -16,6 +16,9 @@ import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * Klass JavaExecutor sisaldab Java koodi kompileerimise ning käivitamise vahendeid.
+ */
 public class JavaExecutor extends FunctionExecutor {
     private static final Logger logger = LoggerFactory.getLogger(JavaExecutor.class);
     private String className;

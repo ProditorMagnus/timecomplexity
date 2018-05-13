@@ -13,6 +13,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
+/**
+ * Klass PythonExecutor võimaldab keeles Python koostatud funktsioonide ning failide käivitamist.
+ */
 public class PythonExecutor extends FunctionExecutor {
     private static final Logger logger = LoggerFactory.getLogger(PythonExecutor.class);
     private long TIME_LIMIT;

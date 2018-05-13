@@ -9,6 +9,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+/**
+ * Klass Config sisaldab seadete haldamise funktsionaalsust.
+ */
 public class Config {
     private static final Logger logger = LoggerFactory.getLogger(Config.class);
     private static final Map<String, Properties> cache = new HashMap<>();
