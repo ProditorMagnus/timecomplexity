@@ -61,7 +61,7 @@ public class ComplexityFinder {
         }
         nlogSum = Math.min(nlogSum, nlogSum2 * 10);
         // logarithm mapping gives high value with non-logarithm data
-        if (logSum < 10 * nlogSum && logSum < 10 * polySum || 10 * logSum < nlogSum && 10 * logSum < polySum && logSum < 100) {
+        if ((logSum < 10 * nlogSum && logSum < 10 * polySum || 10 * logSum < nlogSum && 10 * logSum < polySum && logSum < 100) && logSum < 10000) {
             return "log(n)";
         }
         // 2**100 is sufficiently large to show that it could not be exponential
