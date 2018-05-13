@@ -23,5 +23,5 @@ Kompileerimise tulemusena on kaustas target fail time-complexity-1.0.jar. Käivi
 
 ```
 cp target/time-complexity-1.0.jar .
-java –jar time-complexity-1.0.jar
+java -jar time-complexity-1.0.jar
 ```
