@@ -26,4 +26,4 @@ cp target/time-complexity-1.0.jar .
 java -jar time-complexity-1.0.jar
 ```
 
-Kui vaikimisi kasutatav `java` käsk viitab JRE asukohale, siis on Java funktsiooni käivitamiseks vajalik anda käsk `java` täieliku teega JDK kaustas asuva `java` failini, näiteks `"C:\Program Files\Java\jdk1.8.0_121\jre\bin\java" -jar time-complexity.jar`
+Kui vaikimisi kasutatav `java` käsk viitab JRE asukohale, siis on Java funktsiooni käivitamiseks vajalik anda käsk `java` täieliku teega JDK kaustas asuva `java` failini, näiteks `"C:\Program Files\Java\jdk1.8.0_121\jre\bin\java" -jar time-complexity-1.0.jar`
