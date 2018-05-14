@@ -67,7 +67,7 @@ public class ResultHolder {
         }
         String function = ComplexityFinder.findFunction(x, y);
         if (function.isEmpty()) logger.warn("Liiga vähe andmeid, et keerukust leida, andmemaht: {}", results.size());
-        return "Comment :=>> Ajaline keerukus: O(" + function + ")";
+        return "Comment :=>> Oletatav ajaline keerukus: O(" + function + ")";
     }
 
     @Override
