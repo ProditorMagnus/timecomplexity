@@ -2,7 +2,7 @@
 
 See projekt on koostatud Toom Lõhmuse bakalaureusetöö raames.
 
-[Link bakalaureusetööle](https://example.com) TODO
+[Link bakalaureusetööle](http://comserv.cs.ut.ee/ati_thesis/datasheet.php?id=61683&year=2018)
 
 Selle projekti eesmärk on võimaldada funktsiooni ajalise keerukuse automaatset määramist. Täpsem kirjeldus on esitatud bakalaureusetöös.
 
